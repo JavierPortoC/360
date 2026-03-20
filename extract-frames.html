@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Extraer Frames del Video</title>
+<style>
+  body { background:#111; color:#fff; font-family:sans-serif; padding:20px; }
+  video { max-width:800px; display:block; margin:10px 0; }
+  canvas { display:none; }
+  #frames { display:flex; flex-wrap:wrap; gap:10px; margin-top:20px; }
+  #frames img { width:200px; border:2px solid #444; border-radius:4px; cursor:pointer; }
+  #frames img:hover { border-color:#f0c060; }
+  button { background:#f0c060; color:#111; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; font-size:14px; margin:4px; }
+  #status { color:#f0c060; margin:10px 0; }
+  #download-all { margin-top:10px; }
+</style>
+</head>
+<body>
+<h2>Extractor de Frames — Video Render Casas Palmas</h2>
+<div id="status">Cargando video...</div>
+<video id="v" controls preload="auto"></video>
+<canvas id="c"></canvas>
+<div>
+  <button onclick="extractFrames(16)">Extraer 16 frames clave</button>
+  <button onclick="extractFrames(32)">Extraer 32 frames</button>
+  <button id="download-all" style="display:none" onclick="downloadAll()">Descargar todos como ZIP</button>
+</div>
+<div id="frames"></div>
+
+<script>
+const videoSrc = 'http://localhost:3333/video?p=' + encodeURIComponent('C:\\Users\\ASUS\\Documents\\Proyectos\\Las Palmas\\Video Render Casas Palmas.mp4');
+const v = document.getElementById('v');
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+const status = document.getElementById('status');
+const framesDiv = document.getElementById('frames');
+
+v.src = videoSrc;
+v.addEventListener('loadedmetadata', () => {
+  status.textContent = `Video listo · Duración: ${v.duration.toFixed(1)}s · ${v.videoWidth}×${v.videoHeight}`;
+});
+v.addEventListener('error', e => {
+  status.textContent = 'Error cargando video: ' + (v.error?.message || e);
+});
+
+const capturedFrames = [];
+
+async function extractFrames(count) {
+  if(!v.duration) { status.textContent = 'Espera a que cargue el video'; return; }
+  framesDiv.innerHTML = '';
+  capturedFrames.length = 0;
+  c.width  = v.videoWidth  || 1280;
+  c.height = v.videoHeight || 720;
+  status.textContent = `Extrayendo ${count} frames...`;
+
+  // Sample timestamps evenly across duration
+  const step = v.duration / count;
+  for(let i = 0; i < count; i++) {
+    const t = step * i + step * 0.1;
+    await seekTo(t);
+    ctx.drawImage(v, 0, 0, c.width, c.height);
+    const dataUrl = c.toDataURL('image/jpeg', 0.92);
+    capturedFrames.push({ t: t.toFixed(2), dataUrl });
+
+    const img = document.createElement('img');
+    img.src = dataUrl;
+    img.title = `t=${t.toFixed(1)}s`;
+    img.onclick = () => {
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `frame_${t.toFixed(1)}s.jpg`;
+      a.click();
+    };
+    framesDiv.appendChild(img);
+    status.textContent = `Extraído ${i+1}/${count} (t=${t.toFixed(1)}s)...`;
+  }
+  status.textContent = `Listo · ${count} frames extraídos. Haz clic en cualquiera para descargar.`;
+  document.getElementById('download-all').style.display = 'inline';
+}
+
+function seekTo(t) {
+  return new Promise(resolve => {
+    const onSeeked = () => { v.removeEventListener('seeked', onSeeked); setTimeout(resolve, 80); };
+    v.addEventListener('seeked', onSeeked);
+    v.currentTime = t;
+  });
+}
+
+function downloadAll() {
+  capturedFrames.forEach(({t, dataUrl}) => {
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `frame_${t}s.jpg`;
+    a.click();
+  });
+}
+</script>
+</body>
+</html>
