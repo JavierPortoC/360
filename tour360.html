@@ -1194,6 +1194,177 @@ const loadTimer = setInterval(()=>{
 },100);
 
 animate();
+
+// ─── LIVE EDITOR (lil-gui) ───────────────────────────────────────────────────
+(async ()=>{
+  // Load lil-gui dynamically
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/lil-gui@0.19/dist/lil-gui.umd.min.js';
+  document.head.appendChild(script);
+  await new Promise(r=>{ script.onload=r; });
+
+  const gui = new lil.GUI({ title:'✏️ Editor Casa', width:280 });
+  gui.domElement.style.zIndex = '9999';
+
+  // ── ILUMINACIÓN ──────────────────────────────────────────────────────────────
+  const fLight = gui.addFolder('💡 Iluminación');
+  const lightCfg = { sol:1.2, ambiente:0.6, interiores:2.0, facades:2.5 };
+
+  fLight.add(lightCfg,'sol',0,4,0.05).name('Sol (intensidad)').onChange(v=>{
+    sun.intensity = v;
+  });
+  fLight.add(lightCfg,'ambiente',0,2,0.05).name('Luz ambiente').onChange(v=>{
+    ambient.intensity = v;
+  });
+  fLight.addColor({ color:'#ffa040' },'color').name('Color sol').onChange(v=>{
+    sun.color.set(v);
+  });
+  fLight.add({ hora:'atardecer' },'hora',['mañana','mediodía','atardecer','noche']).name('Hora del día').onChange(v=>{
+    const presets = {
+      'mañana':    { sunColor:'#ffe0c0', sunI:1.5, ambColor:'#d0e8f8', ambI:0.8, sunPos:[-10,20,-15] },
+      'mediodía':  { sunColor:'#ffffff', sunI:2.5, ambColor:'#e8f0f8', ambI:1.0, sunPos:[0,40,0] },
+      'atardecer': { sunColor:'#ffa040', sunI:1.2, ambColor:'#fff0e0', ambI:0.6, sunPos:[-15,12,-20] },
+      'noche':     { sunColor:'#2040a0', sunI:0.1, ambColor:'#102040', ambI:0.2, sunPos:[5,20,10] },
+    };
+    const p=presets[v];
+    sun.color.set(p.sunColor); sun.intensity=p.sunI;
+    sun.position.set(...p.sunPos);
+    ambient.color.set(p.ambColor); ambient.intensity=p.ambI;
+    gui.controllersRecursive().forEach(c=>c.updateDisplay());
+  });
+
+  // ── MATERIALES PAREDES ───────────────────────────────────────────────────────
+  const fWalls = gui.addFolder('🏠 Paredes y Suelos');
+  fWalls.addColor({ c:'#f2ede8' },'c').name('Color pared').onChange(v=>{
+    [M.wall, M.wallExterior, M.wallClean].forEach(m=>m.color.set(v));
+  });
+  fWalls.addColor({ c:'#e8e0d5' },'c').name('Color suelo').onChange(v=>{
+    M.floor.color.set(v);
+  });
+  fWalls.addColor({ c:'#c8935a' },'c').name('Suelo madera').onChange(v=>{
+    M.wood.color.set(v);
+  });
+  fWalls.addColor({ c:'#f0ebe3' },'c').name('Color techo').onChange(v=>{
+    M.ceilingMat.color.set(v);
+  });
+
+  // ── FACHADA ──────────────────────────────────────────────────────────────────
+  const fFachada = gui.addFolder('🏗️ Fachada');
+  fFachada.addColor({ c:'#c8b89a' },'c').name('Piedra (pilar)').onChange(v=>{
+    M.stone.color.set(v);
+  });
+  fFachada.addColor({ c:'#9b6a3a' },'c').name('Madera (lamas)').onChange(v=>{
+    M.louver.color.set(v);
+  });
+  fFachada.addColor({ c:'#2d6020' },'c').name('Pared vegetal').onChange(v=>{
+    M.greenWall.color.set(v); M.plantGreen.color.set(v);
+  });
+  fFachada.addColor({ c:'#111111' },'c').name('Marco metálico').onChange(v=>{
+    M.darkFrame.color.set(v);
+  });
+  fFachada.addColor({ c:'#a07848' },'c').name('Celosía').onChange(v=>{
+    M.lattice.color.set(v);
+  });
+  fFachada.add({ brillo:2.0 },'brillo',0,5,0.1).name('LED brillo').onChange(v=>{
+    M.ledStrip.emissiveIntensity = v;
+  });
+
+  // ── CRISTALES ────────────────────────────────────────────────────────────────
+  const fGlass = gui.addFolder('🪟 Cristales');
+  fGlass.add({ opac:0.25 },'opac',0,0.9,0.01).name('Opacidad vidrio').onChange(v=>{
+    M.glass.opacity = v;
+  });
+  fGlass.addColor({ c:'#88bbdd' },'c').name('Color vidrio').onChange(v=>{
+    M.glass.color.set(v);
+  });
+
+  // ── PISCINA ──────────────────────────────────────────────────────────────────
+  const fPool = gui.addFolder('🏊 Piscina');
+  fPool.addColor({ c:'#1a6fa8' },'c').name('Color agua').onChange(v=>{
+    M.water.color.set(v);
+  });
+  fPool.add({ op:0.85 },'op',0.3,1,0.01).name('Opacidad agua').onChange(v=>{
+    M.water.opacity = v;
+  });
+  fPool.addColor({ c:'#5ab8d4' },'c').name('Azulejo').onChange(v=>{
+    M.poolTile.color.set(v);
+  });
+
+  // ── MOBILIARIO ───────────────────────────────────────────────────────────────
+  const fFurni = gui.addFolder('🛋️ Mobiliario');
+  fFurni.addColor({ c:'#d4c4b0' },'c').name('Sofá').onChange(v=>{
+    M.sofaLight.color.set(v);
+  });
+  fFurni.addColor({ c:'#8b6343' },'c').name('Mesa').onChange(v=>{
+    M.tableTop.color.set(v);
+  });
+  fFurni.addColor({ c:'#b07850' },'c').name('Madera muebles').onChange(v=>{
+    M.cabinetWood.color.set(v);
+  });
+  fFurni.addColor({ c:'#fafafa' },'c').name('Ropa de cama').onChange(v=>{
+    M.bedWhite.color.set(v);
+  });
+
+  // ── CÁMARA ───────────────────────────────────────────────────────────────────
+  const fCam = gui.addFolder('📷 Cámara');
+  fCam.add({ fov:75 },'fov',40,110,1).name('Campo visual (FOV)').onChange(v=>{
+    camera.fov = v; camera.updateProjectionMatrix();
+  });
+  fCam.add({ fog:80 },'fog',20,200,1).name('Distancia niebla').onChange(v=>{
+    scene.fog.far = v;
+  });
+  fCam.add({ fogNear:20 },'fogNear',0,50,1).name('Niebla inicio').onChange(v=>{
+    scene.fog.near = v;
+  });
+  fCam.addColor({ c:'#d4e4f0' },'c').name('Color niebla').onChange(v=>{
+    scene.fog.color.set(v);
+  });
+  const camPos = {
+    'Exterior':   ()=>camera.position.set(-8, 1.7, -18),
+    'Sala':       ()=>camera.position.set(0, 1.7, 2),
+    'Cocina':     ()=>camera.position.set(7, 1.7, -2),
+    'Piso 2':     ()=>camera.position.set(0, F2Y+1.7, 0),
+    'Altillo':    ()=>camera.position.set(0, F3Y+1.7, 0),
+    'Piscina':    ()=>camera.position.set(-13, 1.7, 2),
+  };
+  fCam.add({ ir:'Exterior' },'ir', Object.keys(camPos)).name('Ir a...').onChange(v=>{
+    camPos[v](); isActive=true;
+  });
+
+  // ── EXPORTAR CONFIG ──────────────────────────────────────────────────────────
+  gui.add({
+    exportar: ()=>{
+      const cfg = {
+        sol: { color:'#'+sun.color.getHexString(), intensidad: sun.intensity },
+        ambiente: { color:'#'+ambient.color.getHexString(), intensidad: ambient.intensity },
+        paredes: '#'+M.wallExterior.color.getHexString(),
+        suelo:   '#'+M.floor.color.getHexString(),
+        madera:  '#'+M.wood.color.getHexString(),
+        piedra:  '#'+M.stone.color.getHexString(),
+        vidrio:  { color:'#'+M.glass.color.getHexString(), opacidad: M.glass.opacity },
+        agua:    '#'+M.water.color.getHexString(),
+      };
+      const blob = new Blob([JSON.stringify(cfg, null, 2)], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'casa-config.json';
+      a.click();
+    }
+  },'exportar').name('💾 Exportar configuración');
+
+  // Hide gui toggle (G key)
+  window.addEventListener('keydown', e=>{
+    if(e.code==='KeyG') gui._hidden ? gui.show() : gui.hide();
+  });
+
+  // Position GUI to the left
+  gui.domElement.style.position = 'fixed';
+  gui.domElement.style.top = '70px';
+  gui.domElement.style.right = '10px';
+
+  // Close all folders by default to save space
+  [fLight, fWalls, fFachada, fGlass, fPool, fFurni, fCam].forEach(f=>f.close());
+})();
 </script>
 </body>
 </html>
