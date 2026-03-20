@@ -454,6 +454,11 @@ const skyMesh = new THREE.Mesh(skyGeo, M.sky);
 scene.add(skyMesh);
 
 // ─── FLOOR PLANS GEOMETRY ────────────────────────────────────────────────────
+// Floor Y levels — declared here so all geometry code can reference them
+const F1Y = 0;
+const F2Y = 3.0;
+const F3Y = 6.0;
+
 // House dimensions (approx from plans):
 // Primer piso: 20m wide × 11m deep (main area)
 // Pool: 7.5m × 8m (to the left)
@@ -612,7 +617,6 @@ addLight(0x80ff40, 1.0, -5, F2Y+1.5, -5.0, 6);
 // ══════════════════════════════════════════════
 //  PRIMER PISO — INTERNAL WALLS
 // ══════════════════════════════════════════════
-const F1Y = 0; // floor y of piso 1
 
 // Kitchen wall (separating kitchen from sala, partial)
 wall(WT, WH, 4, M.wall, 4, WH/2+F1Y, -2);
@@ -751,7 +755,6 @@ plant(-8, 0, -4, 1.0);
 // ══════════════════════════════════════════════
 //  SEGUNDO PISO
 // ══════════════════════════════════════════════
-const F2Y = 3.0;
 
 // Main structure walls (front facade built above in detailed section)
 wall(20, WH, WT, M.wallExterior, 0, F2Y+WH/2, 5);
@@ -806,7 +809,6 @@ box(2.0, 2.5, 0.4, M.cabinetWood, 8.5, F2Y+1.25, 1.5);
 // ══════════════════════════════════════════════
 //  ALTILLO
 // ══════════════════════════════════════════════
-const F3Y = 6.0;
 
 // Walls (front facade built in detailed section above)
 wall(12, WH, WT, M.wallExterior, -2, F3Y+WH/2, 5);
