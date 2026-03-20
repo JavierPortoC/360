@@ -106,6 +106,65 @@
     box-shadow:0 0 10px #f0c060;
   }
 
+  /* Cotas & fly buttons */
+  #hud-btns {
+    position:absolute; top:20px; left:50%; transform:translateX(-50%);
+    display:flex; gap:8px; pointer-events:all; margin-top:56px;
+  }
+  .hud-btn {
+    background:rgba(0,0,0,0.6); color:#aaa; border:1px solid rgba(255,255,255,0.2);
+    padding:5px 12px; border-radius:16px; font-size:11px; cursor:pointer;
+    backdrop-filter:blur(4px); transition:all .3s; letter-spacing:1px;
+    pointer-events:all;
+  }
+  .hud-btn.active { background:rgba(240,192,96,0.85); color:#111; border-color:#f0c060; font-weight:700; }
+  .hud-btn:hover:not(.active) { background:rgba(255,255,255,0.12); color:#fff; }
+
+  /* AI Assistant panel */
+  #ai-panel {
+    position:absolute; bottom:20px; left:20px;
+    width:320px; max-height:420px;
+    background:rgba(10,12,20,0.92); border:1px solid rgba(240,192,96,0.35);
+    border-radius:16px; backdrop-filter:blur(12px);
+    display:flex; flex-direction:column; overflow:hidden;
+    pointer-events:all; transition:all .3s; box-shadow:0 8px 32px rgba(0,0,0,0.6);
+  }
+  #ai-panel.hidden { display:none; }
+  #ai-header {
+    padding:10px 14px; background:rgba(240,192,96,0.12);
+    border-bottom:1px solid rgba(240,192,96,0.2);
+    font-size:13px; font-weight:600; color:#f0c060;
+    display:flex; align-items:center; justify-content:space-between; cursor:pointer;
+  }
+  #ai-header-badge {
+    font-size:10px; background:rgba(240,192,96,0.2); color:#f0c060;
+    padding:2px 7px; border-radius:8px; letter-spacing:.5px;
+  }
+  #ai-messages {
+    flex:1; overflow-y:auto; padding:10px 12px;
+    display:flex; flex-direction:column; gap:8px; min-height:80px; max-height:280px;
+    scrollbar-width:thin; scrollbar-color:rgba(240,192,96,0.3) transparent;
+  }
+  .ai-msg { font-size:12px; line-height:1.5; padding:7px 10px; border-radius:10px; max-width:90%; }
+  .ai-msg.user { background:rgba(240,192,96,0.15); color:#f0c060; align-self:flex-end; border-radius:10px 10px 2px 10px; }
+  .ai-msg.bot  { background:rgba(255,255,255,0.07); color:#ddd; align-self:flex-start; border-radius:10px 10px 10px 2px; }
+  .ai-msg.bot strong { color:#f0c060; }
+  #ai-input-row {
+    display:flex; gap:6px; padding:10px 12px;
+    border-top:1px solid rgba(255,255,255,0.08);
+  }
+  #ai-input {
+    flex:1; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.15);
+    color:#fff; padding:7px 10px; border-radius:8px; font-size:12px; outline:none;
+  }
+  #ai-input:focus { border-color:rgba(240,192,96,0.5); }
+  #ai-input::placeholder { color:rgba(255,255,255,0.3); }
+  #ai-send {
+    background:#f0c060; color:#111; border:none; padding:7px 12px;
+    border-radius:8px; cursor:pointer; font-size:14px; font-weight:700; transition:all .2s;
+  }
+  #ai-send:hover { background:#fff; }
+
   /* Floor nav pills */
   #floor-nav {
     position:absolute; top:20px; left:50%; transform:translateX(-50%);
@@ -155,12 +214,32 @@
     <canvas id="minimap-canvas" width="140" height="140"></canvas>
   </div>
 
+  <div id="hud-btns">
+    <button class="hud-btn" id="btn-cotas">📐 Cotas</button>
+    <button class="hud-btn" id="btn-fly">🚁 Volar</button>
+    <button class="hud-btn" id="btn-ai">🤖 IA</button>
+  </div>
+
   <div id="controls">
     <span>WASD</span> / <span>↑↓←→</span> Moverse<br>
     <span>Drag</span> Mirar alrededor<br>
-    <span>E</span> Subir / Bajar escaleras<br>
-    <span>Shift</span> Correr<br>
-    <span>Pills</span> Saltar a planta
+    <span>E</span> Usar escaleras<br>
+    <span>Shift</span> Correr · <span>Space</span> Saltar<br>
+    <span>Alt</span> Subir · <span>Ctrl</span> Bajar (vuelo)<br>
+    <span>Pills</span> Saltar a planta · <span>I</span> IA
+  </div>
+
+  <!-- AI Assistant -->
+  <div id="ai-panel" class="hidden">
+    <div id="ai-header">
+      <span>🤖 Asistente IA</span>
+      <span id="ai-header-badge">Casa Tipo 1</span>
+    </div>
+    <div id="ai-messages"></div>
+    <div id="ai-input-row">
+      <input id="ai-input" type="text" placeholder="Ej: pon la luz del atardecer…" autocomplete="off">
+      <button id="ai-send">↑</button>
+    </div>
   </div>
 </div>
 
@@ -934,6 +1013,79 @@ teleports.forEach(tp=>{
   scene.add(cone);
 });
 
+// ─── COTAS (DIMENSION LINES) ─────────────────────────────────────────────────
+const cotasGroup = new THREE.Group();
+cotasGroup.visible = false;
+scene.add(cotasGroup);
+
+function makeCotaLine(x1,y1,z1, x2,y2,z2, color=0xf0c060){
+  const pts=[new THREE.Vector3(x1,y1,z1), new THREE.Vector3(x2,y2,z2)];
+  const geo=new THREE.BufferGeometry().setFromPoints(pts);
+  const mat=new THREE.LineBasicMaterial({color,depthTest:false,transparent:true,opacity:.85});
+  const line=new THREE.Line(geo,mat);
+  line.renderOrder=10;
+  cotasGroup.add(line);
+}
+
+function makeCotaSprite(x,y,z,text){
+  const cv=document.createElement('canvas'); cv.width=256; cv.height=64;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='rgba(10,10,20,0.82)';
+  ctx.beginPath(); ctx.rect(4,4,248,56); ctx.fill();
+  ctx.strokeStyle='#f0c060'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.rect(4,4,248,56); ctx.stroke();
+  ctx.fillStyle='#f0e090'; ctx.font='bold 28px sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(text,128,34);
+  const tex=new THREE.CanvasTexture(cv);
+  const mat=new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true});
+  const sp=new THREE.Sprite(mat); sp.scale.set(2,0.5,1);
+  sp.position.set(x,y,z); sp.renderOrder=11;
+  cotasGroup.add(sp);
+}
+
+function makeCota(x1,y1,z1, x2,y2,z2, label, offX=0,offY=0.6,offZ=0){
+  const mx=(x1+x2)/2+offX, my=(y1+y2)/2+offY, mz=(z1+z2)/2+offZ;
+  // main line
+  makeCotaLine(x1,y1,z1, x2,y2,z2);
+  // tick ends
+  const dx=x2-x1, dz=z2-z1; const len=Math.sqrt(dx*dx+dz*dz)||1;
+  const nx=-dz/len*0.3, nz=dx/len*0.3;
+  makeCotaLine(x1-nx,y1,z1-nz, x1+nx,y1,z1+nz);
+  makeCotaLine(x2-nx,y2,z2-nz, x2+nx,y2,z2+nz);
+  makeCotaSprite(mx,my,mz,label);
+}
+
+// Key house dimensions
+// Horizontal floor plan (y=0.05)
+makeCota(-10,0.05,-7.5, 10,0.05,-7.5, '20.0 m'); // house width
+makeCota(-10.5,0.05,-6, -10.5,0.05,5, '11.0 m',0,0,0); // house depth
+makeCota(-17,0.05,-3.5, -11,0.05,-3.5, '6.0 m (Piscina)'); // pool length
+makeCota(10.5,0.05,-3,  10.5,0.05,5,  '8.0 m (Garaje)',0,0,0); // garage
+// Vertical (floor heights) at x=11
+makeCotaLine(11,.05,-7,  11,3.0,-7); // F1 height
+makeCotaLine(10.6,.05,-7,11.4,.05,-7);
+makeCotaLine(10.6,3.0,-7,11.4,3.0,-7);
+makeCotaSprite(12.2,1.5,-7,'3.0 m');
+makeCotaLine(11,3.0,-7,  11,6.0,-7);
+makeCotaLine(10.6,3.0,-7,11.4,3.0,-7);
+makeCotaLine(10.6,6.0,-7,11.4,6.0,-7);
+makeCotaSprite(12.2,4.5,-7,'3.0 m');
+// Room labels
+makeCotaSprite(0,0.1,0, 'Sala · 10×11 m');
+makeCotaSprite(-14,0.1,0,'Piscina · 6×3 m');
+makeCotaSprite(14,0.1,0, 'Garaje · 8×8 m');
+makeCotaSprite(2,F2Y+0.1,0,'Hab 3 Master · 13×11 m');
+makeCotaSprite(0,F3Y+0.1,0,'Suite Master');
+
+let cotasVisible = false;
+const btnCotas = document.getElementById('btn-cotas');
+btnCotas.addEventListener('click', ()=>{
+  cotasVisible = !cotasVisible;
+  cotasGroup.visible = cotasVisible;
+  btnCotas.classList.toggle('active', cotasVisible);
+});
+
 // ─── CUSTOM MOUSE-LOOK + DRAG CONTROLS ───────────────────────────────────────
 let yaw = Math.PI;   // horizontal rotation (start facing into house)
 let pitch = 0;       // vertical rotation
@@ -1003,14 +1155,35 @@ function applyCameraRotation(){
 
 // ─── MOVEMENT ────────────────────────────────────────────────────────────────
 const keys = {};
-window.addEventListener('keydown', e=>{ keys[e.code]=true; });
-window.addEventListener('keyup',   e=>{ keys[e.code]=false; });
+let flyMode = false;
+let verticalVel = 0;
+let onGround = true;
+const GRAVITY = -18;
+const JUMP_FORCE = 6;
+
+const btnFly = document.getElementById('btn-fly');
+function toggleFly(on){
+  flyMode = on !== undefined ? on : !flyMode;
+  btnFly.classList.toggle('active', flyMode);
+  btnFly.textContent = flyMode ? '🚁 Volando' : '🚁 Volar';
+  if(!flyMode){ onGround=false; verticalVel=0; }
+  aiReply(flyMode ? '🚁 Modo vuelo activado. <strong>Alt</strong> = subir, <strong>Ctrl</strong> = bajar.' : '🦶 Modo caminata activado.');
+}
+btnFly.addEventListener('click', ()=> toggleFly());
+
+window.addEventListener('keydown', e=>{
+  // Prevent browser defaults for used keys
+  if(['Space','AltLeft','AltRight','ControlLeft','ControlRight'].includes(e.code)) e.preventDefault();
+  keys[e.code]=true;
+  // I key toggles AI panel
+  if(e.code==='KeyI'){ toggleAiPanel(); }
+  // F key toggles fly
+  if(e.code==='KeyF' && isActive){ toggleFly(); }
+});
+window.addEventListener('keyup', e=>{ keys[e.code]=false; });
 
 const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
-const GRAVITY = -15;
-let onGround = true;
-let verticalVel = 0;
 let currentFloorY = F1Y;
 
 const clock = new THREE.Clock();
@@ -1132,7 +1305,7 @@ function animate(){
   applyCameraRotation();
 
   if(isActive){
-    const speed = keys['ShiftLeft']||keys['ShiftRight'] ? 9 : 5;
+    const speed = keys['ShiftLeft']||keys['ShiftRight'] ? 9 : 4.5;
     const fwd  = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
     const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
     if(keys['KeyW']||keys['ArrowUp'])    camera.position.addScaledVector(fwd,   speed * delta);
@@ -1140,21 +1313,40 @@ function animate(){
     if(keys['KeyA']||keys['ArrowLeft'])  camera.position.addScaledVector(right, -speed * delta);
     if(keys['KeyD']||keys['ArrowRight']) camera.position.addScaledVector(right,  speed * delta);
 
-    // Gravity & floor detection
     const cp = camera.position;
-    let targetFloorY = -100;
-    for(const r of floorColliders){
-      if(cp.x>=r.minX && cp.x<=r.maxX && cp.z>=r.minZ && cp.z<=r.maxZ){
-        if(r.y > targetFloorY && cp.y >= r.y+0.5) targetFloorY=r.y;
-      }
-    }
-    if(targetFloorY === -100) targetFloorY = -5; // outdoor ground
-    const eyeHeight = 1.7;
-    const targetY = targetFloorY + eyeHeight;
+    const flySpeed = keys['ShiftLeft']||keys['ShiftRight'] ? 14 : 7;
 
-    // Smooth floor snapping
-    if(Math.abs(cp.y - targetY) < 3){
-      cp.y += (targetY - cp.y) * Math.min(12*delta, 1);
+    if(flyMode){
+      // Flying: Alt=up, Ctrl=down
+      if(keys['AltLeft']||keys['AltRight'])      cp.y += flySpeed * delta;
+      if(keys['ControlLeft']||keys['ControlRight']) cp.y -= flySpeed * delta;
+    } else {
+      // Floor detection
+      let targetFloorY = -100;
+      for(const r of floorColliders){
+        if(cp.x>=r.minX && cp.x<=r.maxX && cp.z>=r.minZ && cp.z<=r.maxZ){
+          if(r.y > targetFloorY && cp.y >= r.y+0.5) targetFloorY=r.y;
+        }
+      }
+      if(targetFloorY === -100) targetFloorY = -5;
+      const eyeHeight = 1.7;
+      const targetY = targetFloorY + eyeHeight;
+
+      // Jump
+      if(keys['Space'] && onGround){ verticalVel = JUMP_FORCE; onGround=false; keys['Space']=false; }
+
+      // Apply gravity & vertical velocity
+      verticalVel += GRAVITY * delta;
+      cp.y += verticalVel * delta;
+
+      // Land on floor
+      if(cp.y <= targetY){
+        cp.y = targetY;
+        verticalVel = 0;
+        onGround = true;
+      } else {
+        onGround = false;
+      }
     }
 
     // Clamp far from house
@@ -1195,6 +1387,170 @@ const loadTimer = setInterval(()=>{
 
 animate();
 
+// ─── AI ASSISTANT ─────────────────────────────────────────────────────────────
+const aiPanel  = document.getElementById('ai-panel');
+const aiMsgs   = document.getElementById('ai-messages');
+const aiInput  = document.getElementById('ai-input');
+const aiSend   = document.getElementById('ai-send');
+const btnAI    = document.getElementById('btn-ai');
+
+function toggleAiPanel(forceOpen){
+  const open = forceOpen !== undefined ? forceOpen : aiPanel.classList.contains('hidden');
+  aiPanel.classList.toggle('hidden', !open);
+  btnAI.classList.toggle('active', open);
+  if(open) aiInput.focus();
+}
+btnAI.addEventListener('click', ()=> toggleAiPanel());
+
+function aiReply(html){
+  const d=document.createElement('div');
+  d.className='ai-msg bot'; d.innerHTML=html;
+  aiMsgs.appendChild(d);
+  aiMsgs.scrollTop=aiMsgs.scrollHeight;
+}
+function aiUserMsg(text){
+  const d=document.createElement('div');
+  d.className='ai-msg user'; d.textContent=text;
+  aiMsgs.appendChild(d);
+  aiMsgs.scrollTop=aiMsgs.scrollHeight;
+}
+
+// Preset color palettes
+const COLOR_MAP = {
+  'blanco':'#ffffff','negro':'#111111','gris':'#888888','gris claro':'#cccccc',
+  'beige':'#e8dcc8','crema':'#f5edd8','arena':'#d4b896','marrón':'#8b5e3c',
+  'rojo':'#cc3333','naranja':'#e87040','amarillo':'#f0d060','verde':'#4a9050',
+  'azul':'#3060c0','azul oscuro':'#1a3a7e','azul claro':'#70a8e0','celeste':'#88ccee',
+  'violeta':'#7040b0','rosa':'#e08090','dorado':'#f0c060','plateado':'#b0b8c0',
+  'madera':'#8b6343','piedra':'#a09080','mármol':'#e8e0d8','concreto':'#909090',
+};
+function parseColor(str){
+  const low=str.toLowerCase();
+  for(const [k,v] of Object.entries(COLOR_MAP)) if(low.includes(k)) return v;
+  const hex=low.match(/#[0-9a-f]{3,6}/i); if(hex) return hex[0];
+  return null;
+}
+
+// Teleport map
+const AI_PLACES = {
+  'exterior':   ()=>{ camera.position.set(-8,1.7,-18); yaw=Math.PI; },
+  'sala':       ()=>{ camera.position.set(0,F1Y+1.7,2); },
+  'cocina':     ()=>{ camera.position.set(7,F1Y+1.7,-2); },
+  'piscina':    ()=>{ camera.position.set(-13,F1Y+1.7,2); },
+  'garaje':     ()=>{ camera.position.set(14,F1Y+1.7,0); },
+  'piso 2':     ()=>{ camera.position.set(0,F2Y+1.7,0); },
+  'segundo piso':()=>{ camera.position.set(0,F2Y+1.7,0); },
+  'habitación': ()=>{ camera.position.set(0,F2Y+1.7,0); },
+  'altillo':    ()=>{ camera.position.set(0,F3Y+1.7,0); },
+  'suite':      ()=>{ camera.position.set(0,F3Y+1.7,0); },
+  'terraza':    ()=>{ camera.position.set(-8,F3Y+1.7,2); },
+  'fachada':    ()=>{ camera.position.set(-8,1.7,-18); yaw=Math.PI; },
+};
+
+function processAICommand(text){
+  const t = text.toLowerCase().trim();
+  isActive = true;
+
+  // NAVIGATION
+  for(const [place, fn] of Object.entries(AI_PLACES)){
+    if(t.includes(place)){ fn(); return `✅ Teleportado a <strong>${place}</strong>.`; }
+  }
+  if(/ir a|llévame|ve a|muéstrame|mueve/.test(t)){
+    return `No reconozco ese lugar. Prueba: sala, cocina, piscina, piso 2, altillo, exterior.`;
+  }
+
+  // LIGHTING PRESETS
+  if(/atardecer/.test(t)){ applyLightPreset('atardecer'); return `🌅 Luz de atardecer aplicada.`; }
+  if(/noche/.test(t)){ applyLightPreset('noche'); return `🌙 Luz nocturna aplicada.`; }
+  if(/mañana|amanecer/.test(t)){ applyLightPreset('mañana'); return `🌄 Luz de mañana aplicada.`; }
+  if(/mediodía|sol fuerte|día/.test(t)){ applyLightPreset('mediodía'); return `☀️ Luz de mediodía aplicada.`; }
+  if(/más luz|aumenta.*luz|sube.*luz|ilumina/.test(t)){ sun.intensity=Math.min(sun.intensity+0.5,4); ambient.intensity=Math.min(ambient.intensity+0.2,2); return `💡 Luminosidad aumentada (sol: ${sun.intensity.toFixed(1)}).`; }
+  if(/menos luz|baja.*luz|oscurece|dim/.test(t)){ sun.intensity=Math.max(sun.intensity-0.5,0); ambient.intensity=Math.max(ambient.intensity-0.2,0.05); return `🌑 Luminosidad reducida (sol: ${sun.intensity.toFixed(1)}).`; }
+
+  // FLY MODE
+  if(/volar|vuelo|fly|flotar/.test(t)){ toggleFly(true); return null; }
+  if(/caminar|walk|pie|gravity/.test(t)){ toggleFly(false); return null; }
+
+  // COTAS
+  if(/cotas?|medidas?|dimensiones?/.test(t)){
+    cotasVisible=!cotasVisible; cotasGroup.visible=cotasVisible;
+    btnCotas.classList.toggle('active',cotasVisible);
+    return `📐 Cotas ${cotasVisible?'activadas':'desactivadas'}.`;
+  }
+
+  // FOG
+  if(/niebla|fog/.test(t)){
+    if(/quita|sin|off|0/.test(t)){ scene.fog.far=200; return `🌫️ Niebla desactivada.`; }
+    if(/más|aumenta/.test(t)){ scene.fog.far=Math.max(scene.fog.far-15,20); return `🌫️ Niebla más densa.`; }
+    scene.fog.far=80; return `🌫️ Niebla normal.`;
+  }
+
+  // COLOR CHANGES
+  const col = parseColor(t);
+  if(col){
+    if(/pared|muro|wall/.test(t)){ M.wallExterior.color.set(col); M.wallInterior?.color.set(col); return `🎨 Paredes → <strong>${col}</strong>.`; }
+    if(/suelo|piso|floor/.test(t)){ M.floor.color.set(col); return `🎨 Suelo → <strong>${col}</strong>.`; }
+    if(/madera|wood|parquet/.test(t)){ M.wood.color.set(col); return `🎨 Madera → <strong>${col}</strong>.`; }
+    if(/piedra|stone|pilar/.test(t)){ M.stone.color.set(col); return `🎨 Piedra → <strong>${col}</strong>.`; }
+    if(/vidrio|cristal|glass/.test(t)){ M.glass.color.set(col); return `🎨 Vidrio → <strong>${col}</strong>.`; }
+    if(/agua|pool|piscina/.test(t)){ M.water.color.set(col); return `🎨 Agua → <strong>${col}</strong>.`; }
+    if(/cielo|sky|fondo/.test(t)){ scene.background=new THREE.Color(col); return `🎨 Cielo → <strong>${col}</strong>.`; }
+    if(/sofá|sofa/.test(t)){ M.sofaLight?.color.set(col); return `🎨 Sofá → <strong>${col}</strong>.`; }
+    return `¿Qué elemento quieres cambiar a <strong>${col}</strong>? Ej: "pon las paredes de color ${col}".`;
+  }
+
+  // RESET
+  if(/reset|restablecer|default|original/.test(t)){
+    sun.intensity=1.2; sun.color.set('#ffa040');
+    ambient.intensity=0.6; ambient.color.set('#c8d8f0');
+    scene.fog.far=80; scene.fog.color.set('#d4e4f0');
+    return `🔄 Configuración restablecida.`;
+  }
+
+  // INFO
+  if(/ayuda|help|qué puedes|comandos/.test(t)){
+    return `Puedo ayudarte con:<br>
+      • <strong>Ir a</strong> sala / cocina / piscina / piso 2 / altillo<br>
+      • <strong>Luz</strong> atardecer / noche / mañana / mediodía<br>
+      • <strong>Más/menos luz</strong><br>
+      • <strong>Color</strong> de paredes / suelo / piedra / madera / vidrio<br>
+      • <strong>Cotas</strong> / <strong>Volar</strong> / <strong>Caminar</strong><br>
+      • <strong>Reset</strong> — valores originales`;
+  }
+  if(/hola|buenas|hey/.test(t)) return `¡Hola! Soy el asistente de <strong>Casa Tipo 1</strong>. Escribe <em>ayuda</em> para ver qué puedo hacer.`;
+  if(/gracias/.test(t)) return `¡De nada! 😊`;
+
+  return `No entendí "<em>${text}</em>". Escribe <strong>ayuda</strong> para ver los comandos disponibles.`;
+}
+
+// Light preset helper (shared with lil-gui)
+function applyLightPreset(preset){
+  const p={
+    'mañana':    {sc:'#ffe0c0',si:1.5,ac:'#d0e8f8',ai:0.8,sx:-10,sy:20,sz:-15},
+    'mediodía':  {sc:'#ffffff',si:2.5,ac:'#e8f0f8',ai:1.0,sx:0,sy:40,sz:0},
+    'atardecer': {sc:'#ffa040',si:1.2,ac:'#fff0e0',ai:0.6,sx:-15,sy:12,sz:-20},
+    'noche':     {sc:'#2040a0',si:0.1,ac:'#102040',ai:0.2,sx:5,sy:20,sz:10},
+  }[preset];
+  if(!p) return;
+  sun.color.set(p.sc); sun.intensity=p.si;
+  ambient.color.set(p.ac); ambient.intensity=p.ai;
+  sun.position.set(p.sx,p.sy,p.sz);
+}
+
+function sendAI(){
+  const text=aiInput.value.trim(); if(!text) return;
+  aiUserMsg(text); aiInput.value='';
+  const reply=processAICommand(text);
+  if(reply) setTimeout(()=>aiReply(reply), 200);
+}
+aiSend.addEventListener('click', sendAI);
+aiInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.stopPropagation(); sendAI(); } });
+
+// Welcome message
+setTimeout(()=>{
+  aiReply(`¡Hola! Soy el asistente de <strong>Casa Tipo 1</strong>.<br>Puedo cambiar luces, colores, teletransportarte y más. Escribe <strong>ayuda</strong> para ver los comandos.`);
+}, 800);
+
 // ─── LIVE EDITOR (lil-gui) ───────────────────────────────────────────────────
 (async ()=>{
   // Load lil-gui dynamically
@@ -1220,16 +1576,7 @@ animate();
     sun.color.set(v);
   });
   fLight.add({ hora:'atardecer' },'hora',['mañana','mediodía','atardecer','noche']).name('Hora del día').onChange(v=>{
-    const presets = {
-      'mañana':    { sunColor:'#ffe0c0', sunI:1.5, ambColor:'#d0e8f8', ambI:0.8, sunPos:[-10,20,-15] },
-      'mediodía':  { sunColor:'#ffffff', sunI:2.5, ambColor:'#e8f0f8', ambI:1.0, sunPos:[0,40,0] },
-      'atardecer': { sunColor:'#ffa040', sunI:1.2, ambColor:'#fff0e0', ambI:0.6, sunPos:[-15,12,-20] },
-      'noche':     { sunColor:'#2040a0', sunI:0.1, ambColor:'#102040', ambI:0.2, sunPos:[5,20,10] },
-    };
-    const p=presets[v];
-    sun.color.set(p.sunColor); sun.intensity=p.sunI;
-    sun.position.set(...p.sunPos);
-    ambient.color.set(p.ambColor); ambient.intensity=p.ambI;
+    applyLightPreset(v);
     gui.controllersRecursive().forEach(c=>c.updateDisplay());
   });
 
