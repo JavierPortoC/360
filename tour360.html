@@ -225,7 +225,7 @@
     <span>Drag</span> Mirar alrededor<br>
     <span>E</span> Usar escaleras<br>
     <span>Shift</span> Correr · <span>Space</span> Saltar<br>
-    <span>Alt</span> Subir · <span>Ctrl</span> Bajar (vuelo)<br>
+    <span>F</span> Volar — WASD sigue la cámara<br>
     <span>Pills</span> Saltar a planta · <span>I</span> IA
   </div>
 
@@ -1172,7 +1172,7 @@ function toggleFly(on){
   if(msgs){
     const d = document.createElement('div'); d.className='ai-msg bot';
     d.innerHTML = flyMode
-      ? '🚁 Modo vuelo activado. <strong>Alt</strong> = subir, <strong>Ctrl</strong> = bajar.'
+      ? '🚁 Modo vuelo. <strong>WASD</strong> sigue la dirección de la cámara.'
       : '🦶 Modo caminata activado.';
     msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight;
   }
@@ -1186,8 +1186,8 @@ function isTyping(){
 
 window.addEventListener('keydown', e=>{
   if(isTyping()) return; // don't capture keys while typing in chat
-  // Prevent browser defaults for used keys
-  if(['Space','AltLeft','AltRight','ControlLeft','ControlRight'].includes(e.code)) e.preventDefault();
+  // Prevent browser defaults for Space (scrolling)
+  if(e.code === 'Space') e.preventDefault();
   keys[e.code]=true;
   // I key toggles AI panel
   if(e.code==='KeyI'){ toggleAiPanel(); }
@@ -1324,21 +1324,27 @@ function animate(){
 
   if(isActive){
     const speed = keys['ShiftLeft']||keys['ShiftRight'] ? 9 : 4.5;
-    const fwd  = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
-    const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
-    if(keys['KeyW']||keys['ArrowUp'])    camera.position.addScaledVector(fwd,   speed * delta);
-    if(keys['KeyS']||keys['ArrowDown'])  camera.position.addScaledVector(fwd,  -speed * delta);
-    if(keys['KeyA']||keys['ArrowLeft'])  camera.position.addScaledVector(right, -speed * delta);
-    if(keys['KeyD']||keys['ArrowRight']) camera.position.addScaledVector(right,  speed * delta);
-
     const cp = camera.position;
-    const flySpeed = keys['ShiftLeft']||keys['ShiftRight'] ? 14 : 7;
 
     if(flyMode){
-      // Flying: Alt=up, Ctrl=down
-      if(keys['AltLeft']||keys['AltRight'])      cp.y += flySpeed * delta;
-      if(keys['ControlLeft']||keys['ControlRight']) cp.y -= flySpeed * delta;
+      // Fly mode: WASD follow full 3D camera direction (including pitch)
+      const fwd3 = new THREE.Vector3(); camera.getWorldDirection(fwd3);
+      const right3 = new THREE.Vector3().crossVectors(fwd3, camera.up).normalize();
+      if(keys['KeyW']||keys['ArrowUp'])    cp.addScaledVector(fwd3,   speed * delta);
+      if(keys['KeyS']||keys['ArrowDown'])  cp.addScaledVector(fwd3,  -speed * delta);
+      if(keys['KeyA']||keys['ArrowLeft'])  cp.addScaledVector(right3, -speed * delta);
+      if(keys['KeyD']||keys['ArrowRight']) cp.addScaledVector(right3,  speed * delta);
     } else {
+      // Walk mode: movement is always horizontal regardless of pitch
+      const fwd  = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+      const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+      if(keys['KeyW']||keys['ArrowUp'])    cp.addScaledVector(fwd,   speed * delta);
+      if(keys['KeyS']||keys['ArrowDown'])  cp.addScaledVector(fwd,  -speed * delta);
+      if(keys['KeyA']||keys['ArrowLeft'])  cp.addScaledVector(right, -speed * delta);
+      if(keys['KeyD']||keys['ArrowRight']) cp.addScaledVector(right,  speed * delta);
+    }
+
+    if(!flyMode){
       // Floor detection
       let targetFloorY = -100;
       for(const r of floorColliders){
