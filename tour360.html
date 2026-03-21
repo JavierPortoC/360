@@ -269,7 +269,7 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xd4e4f0, 20, 80);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.05, 200);
-camera.position.set(-8, 1.7, -18); // exterior front
+camera.position.set(0, 1.7, -14); // exterior front — frente del lote
 
 // ─── TEXTURES (procedural) ──────────────────────────────────────────────────
 function makeTexture(fn, size=256) {
@@ -549,541 +549,469 @@ const WH = 3.0; // wall height
 const WT = 0.2; // wall thickness
 
 // ══════════════════════════════════════════════
-//  EXTERIOR GROUNDS
+//  COORDENADAS REALES — 1 unidad = 1 metro
 // ══════════════════════════════════════════════
-floor(60, 60, M.grass, 0, -0.1, 5);
-floor(20, 10, M.pavement, 5, 0, -11); // entrance paving
-floor(10, 6, M.concrete, 18, 0, 0);   // garage approach
+// Lote: 9 m (frente) × 23 m (fondo)
+const LX  =  4.5;    // semiancho lote
+const LZF = -11.5;   // frente del lote (calle)
+const LZB =  11.5;   // fondo  del lote (jardín)
 
-// Perimeter fence hint
-wall(0.1, 1.5, 60, M.wallExterior, -20, 0.75, 5);
-wall(60, 1.5, 0.1, M.wallExterior, 5, 0.75, -16);
+// Huellas por piso (centros en X siempre = 0)
+const P1X1=-3.0, P1X2=3.0, P1Z1=-8.0, P1Z2=-1.8;  // P1: 6.0×6.2 = 37.2 m²
+const P2X1=-4.0, P2X2=4.0, P2Z1=-9.0, P2Z2=-1.0;  // P2: 8.0×8.0 = 64.0 m²
+// P3 (altillo) misma huella que P1
+const P1CZ=(P1Z1+P1Z2)/2;   // = -4.9
+const P2CZ=(P2Z1+P2Z2)/2;   // = -5.0
+
+// Garaje (frente derecho)
+const GX1=0.5, GX2=4.2, GZ1=LZF, GZ2=P1Z1;
+const GCX=(GX1+GX2)/2, GCZ=(GZ1+GZ2)/2;
+
+// Piscina (fondo del lote)
+const PX=-0.5, PZ=5.5;
 
 // ══════════════════════════════════════════════
-//  PRIMER PISO — EXTERIOR WALLS
+//  MUNDO — suelo 100×100 m
 // ══════════════════════════════════════════════
-// Back wall (z = 5)
-wall(20, WH, WT, M.stone, 0, WH/2, 5);
-// Left wall (x = -10)
-wall(WT, WH, 11, M.wallExterior, -10, WH/2, -0.5);
-// Right wall (x = 10)
-wall(WT, WH, 11, M.wallExterior, 10, WH/2, -0.5);
+floor(100, 100, M.grass, 0, -0.07, 0);
+// Superficie del lote (9×23) — pavimento distinto
+floor(9, 23, M.pavement, 0, 0.01, 0);
+// Acceso peatonal/vehicular (de calle al límite de la casa)
+floor(9, 3.5, M.pavement, 0, 0.02, LZF+1.75);
 
-// ── DETAILED FACADE (front, z = -6) ──────────────────────────────────────────
-// Stone pillar — right side, full 3-floor height + extra cap
-box(2.0, 9.5, 0.6, M.stone, 7, 4.75, -5.7, true, true); // main pillar body
-box(2.2, 0.3, 0.8, M.stone, 7, 9.65, -5.7, false, true); // pillar cap
+// ══════════════════════════════════════════════
+//  CERCA VIVA (linderos) — 4 lados del lote
+// ══════════════════════════════════════════════
+box(0.5, 1.8, 23, M.hedgeMat, -LX-0.25, 0.9, 0, true, true);   // lateral izq
+box(0.5, 1.8, 23, M.hedgeMat,  LX+0.25, 0.9, 0, true, true);   // lateral der
+box(9,   1.8, 0.5, M.hedgeMat, 0, 0.9, LZB+0.25, true, true);  // fondo
+box(3.0, 1.8, 0.5, M.hedgeMat, -3.75, 0.9, LZF-0.25, true, true); // frente izq (apertura central de 3 m)
+box(3.0, 1.8, 0.5, M.hedgeMat,  3.75, 0.9, LZF-0.25, true, true); // frente der
+// Foliaje sobre setos
+for(let i=0;i<20;i++){
+  const sz=-11+i*1.15;
+  [[-LX-0.25],[LX+0.25]].forEach(([sx])=>{
+    const s=0.28+Math.random()*0.3;
+    const lump=new THREE.Mesh(new THREE.SphereGeometry(s,5,3),M.plantGreen);
+    lump.position.set(sx,1.75+Math.random()*0.25,sz); scene.add(lump);
+  });
+}
 
-// Ground floor: white wall left of glass opening
-wall(5, WH, WT, M.wallExterior, -7.5, WH/2, -6);         // far left wall
-// Glass opening (large sliding doors) — center/right of entrance
-box(7, 2.8, 0.08, M.glass, 1, 1.4, -5.97, false, true);  // main glass face
-// Dark metal door frame
-box(0.1, 2.8, 0.12, M.darkFrame, -2.05, 1.4, -5.97);
-box(0.1, 2.8, 0.12, M.darkFrame,  4.05, 1.4, -5.97);
-box(7.2, 0.1, 0.12, M.darkFrame,  1,    2.85,-5.97);
-// Vertical door dividers
-box(0.06, 2.8, 0.1, M.darkFrame, -0.5, 1.4, -5.96);
-box(0.06, 2.8, 0.1, M.darkFrame,  2.5, 1.4, -5.96);
 
-// Entry plinth / raised deck
-box(8, 0.25, 2.5, M.paving, 0, 0.12, -7.5, false, true);  // entrance deck
-box(8, 0.12, 0.3, M.paving, 0, 0.31, -8.6, false, true);  // step 1
-box(8, 0.12, 0.3, M.paving, 0, 0.19, -8.9, false, true);  // step 2
-// LED strip under plinth edge
-box(8, 0.04, 0.06, M.ledStrip, 0, 0.04, -8.7, false, false);
+// ══════════════════════════════════════════════
+//  PRIMER PISO — PAREDES EXTERIORES
+//  Huella real: 6.0 m × 6.2 m = 37.2 m²
+// ══════════════════════════════════════════════
+// Paredes laterales (full depth 6.2 m)
+wall(WT, WH, P1Z2-P1Z1, M.wallExterior, P1X1, WH/2, P1CZ);   // izquierda
+wall(WT, WH, P1Z2-P1Z1, M.wallExterior, P1X2, WH/2, P1CZ);   // derecha
+// Pared trasera
+wall(P1X2-P1X1, WH, WT, M.wallExterior, 0, WH/2, P1Z2);
+// Tramo izq de fachada (antes del vidrio)
+wall(0.55, WH, WT, M.wallExterior, P1X1+0.275, WH/2, P1Z1);
 
-// Decorative lattice screen — left of entrance
+// ── FACHADA PRINCIPAL P1 (Z = P1Z1 = -8.0) ──────────────────────────────────
+// Puerta corrediza de vidrio — 5 m ancho
+box(5.0, 2.7, 0.08, M.glass, -0.5, 1.35, P1Z1-0.01, false, true);
+box(0.10, 2.85, 0.12, M.darkFrame, P1X1+0.62, 1.42, P1Z1-0.01);
+box(0.10, 2.85, 0.12, M.darkFrame, P1X2-0.55, 1.42, P1Z1-0.01);
+box(5.30, 0.10, 0.12, M.darkFrame, -0.5, 2.80, P1Z1-0.01);
+box(0.06, 2.70, 0.10, M.darkFrame, -1.8, 1.35, P1Z1);
+box(0.06, 2.70, 0.10, M.darkFrame,  0.8, 1.35, P1Z1);
+// Pilar de piedra derecho — altura total 3 pisos
+box(0.50, 9.50, 0.65, M.stone, P1X2-0.25, 4.75, P1Z1-0.12, true, true);
+box(0.55, 0.28, 0.70, M.stone, P1X2-0.25, 9.64, P1Z1-0.12, false, true);
+// Deck / plinto de entrada
+box(6.0, 0.25, 2.5, M.paving, 0, 0.12, P1Z1-1.25, false, true);
+box(6.0, 0.12, 0.3, M.paving, 0, 0.31, P1Z1-3.88, false, true);
+box(6.0, 0.12, 0.3, M.paving, 0, 0.19, P1Z1-4.18, false, true);
+box(5.8, 0.04, 0.06, M.ledStrip, 0, 0.04, P1Z1-3.72, false, false);
+// Celosía decorativa
 {
-  const lg = new THREE.Group();
-  for(let r=0;r<5;r++) for(let c=0;c<4;c++){
-    const h = new THREE.Mesh(new THREE.BoxGeometry(0.8,0.06,0.06), M.lattice);
-    h.position.set(c*0.9-1.35, r*0.48+0.24, 0); lg.add(h);
-    const v = new THREE.Mesh(new THREE.BoxGeometry(0.06,0.48,0.06), M.lattice);
-    v.position.set(c*0.9-1.35+(c%2?0.2:-0.2), r*0.48+0.24, 0); lg.add(v);
+  const lg=new THREE.Group();
+  for(let r=0;r<5;r++) for(let c=0;c<3;c++){
+    const h=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.06,0.06),M.lattice);
+    h.position.set(c*0.68-0.68,r*0.48+0.24,0); lg.add(h);
+    const v=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.46,0.06),M.lattice);
+    v.position.set(c*0.68-0.68+(c%2?0.14:-0.14),r*0.48+0.24,0); lg.add(v);
   }
-  lg.position.set(-6.3, 0, -7.5); scene.add(lg);
-  // Lattice frame
-  box(3.8, 2.6, 0.08, M.darkFrame, -6.3, 1.3, -7.52, true, true);
+  lg.position.set(P1X1+0.9,0,P1Z1-1.7); scene.add(lg);
+  box(2.2,2.5,0.08,M.darkFrame,P1X1+0.9,1.25,P1Z1-1.72,true,true);
 }
+box(0.75,0.36,0.42,M.planter,P1X1+0.8,0.43,P1Z1-3.1);
+box(0.75,0.36,0.42,M.planter,P1X2-0.8,0.43,P1Z1-3.1);
+plant(P1X1+0.8,0.61,P1Z1-3.1,0.55);
+plant(P1X2-0.8,0.61,P1Z1-3.1,0.55);
 
-// Planter boxes flanking entrance
-box(1.2, 0.4, 0.5, M.planter, -3.5, 0.45, -7.0);
-box(1.2, 0.4, 0.5, M.planter,  3.5, 0.45, -7.0);
-// Plants in planters
-plant(-3.5, 0.65, -7.0, 0.7);
-plant(3.5, 0.65, -7.0, 0.7);
-
-// Long hedge on left boundary
-box(6, 1.4, 0.6, M.hedgeMat, -7.0, 0.7, -8.5);
-
-// ── PISO 2 FACADE ────────────────────────────────────────────────────────────
-// Overhang slab extending forward from facade (soffit)
-box(20, 0.22, 3.0, M.wallExterior, 0, F2Y+0.11, -7.5, false, true); // soffit slab
-// LED warm strip under soffit
-box(18, 0.04, 0.08, M.ledStrip, 0, F2Y-0.02, -6.1, false, false);
-
-// Green vegetation wall — left portion of piso 2 facade
-box(8, WH, 0.25, M.greenWall, -5, F2Y+WH/2, -5.85, true, true);
-// Vegetation texture detail (random lumps)
-for(let i=0;i<12;i++){
-  const bx=-8.5+Math.random()*7, by=F2Y+0.3+Math.random()*2.3;
-  const s=0.3+Math.random()*0.4;
-  const lump=new THREE.Mesh(new THREE.SphereGeometry(s,6,4), M.plantGreen);
-  lump.position.set(bx, by, -5.72); scene.add(lump);
-}
-
-// Wood horizontal cladding — right portion piso 2
-{
-  for(let i=0;i<12;i++){
-    box(7.5, 0.14, 0.18, M.louver, 3, F2Y+0.15+i*0.24, -5.92, true, true);
-  }
-}
-
-// Piso 2 remaining side walls (behind green wall)
-wall(WT, WH, 3, M.wallExterior, -10, F2Y+WH/2, -4.5);
-
-// ── PISO 2 BALCONY ───────────────────────────────────────────────────────────
-// Balcony slab (floor of balcony extending forward)
-box(14, 0.2, 2.8, M.concrete, -1, F2Y-0.1, -7.4, false, true);
-// Glass balcony railing
-box(14, 1.0, 0.06, M.glass, -1, F2Y+0.5, -8.8, false, true);
-box(0.06, 1.0, 2.8, M.glass, -8, F2Y+0.5, -7.4, false, true);
-// LED strip under balcony edge
-box(14, 0.04, 0.08, M.ledStrip, -1, F2Y-0.22, -8.8, false, false);
-
-// ── ALTILLO FACADE ───────────────────────────────────────────────────────────
-wall(12, WH, WT, M.wallExterior, -2, F3Y+WH/2, -6);
-// Altillo large glass / balcony glass
-box(8, 1.8, 0.08, M.glass, -1, F3Y+1.0, -5.97, false, true);
-box(0.1, 2.8, 0.1, M.darkFrame, -5.1, F3Y+WH/2, -5.97);
-
-// Altillo balcony slab
-box(12, 0.2, 3.5, M.concrete, -2, F3Y-0.1, -7.75, false, true);
-// Altillo glass railing
-box(12, 1.0, 0.06, M.glass, -2, F3Y+0.5, -9.5, false, true);
-box(0.06, 1.0, 3.5, M.glass, -8, F3Y+0.5, -7.75, false, true);
-box(0.06, 1.0, 3.5, M.glass, 4, F3Y+0.5, -7.75, false, true);
-// LED strip under altillo balcony
-box(12, 0.04, 0.08, M.ledStrip, -2, F3Y-0.22, -9.5, false, false);
-
-// ── WOOD LOUVER PERGOLA (rooftop) ─────────────────────────────────────────────
-{
-  const pergH = F3Y+WH+0.3;
-  // Pergola beams — longitudinal
-  box(12, 0.15, 4.5, M.louver, -2, pergH+0.1, -7.75, true, true);
-  // Louver slats — transverse, spaced
-  for(let i=0;i<10;i++){
-    box(0.12, 0.22, 4.5, M.louver, -8+i*1.3, pergH+0.22, -7.75, true, true);
-  }
-  // LED strip under pergola
-  box(10, 0.04, 0.08, M.ledStrip, -2, pergH+0.02, -6.2, false, false);
-}
-
-// ── FACADE SPOT LIGHTS ────────────────────────────────────────────────────────
-// Warm uplights on stone pillar
-addLight(0xffcc80, 3.0, 7, 1.5, -5.5, 8);
-addLight(0xffcc80, 2.5, 7, 5.0, -5.5, 8);
-// Entrance warm wash
-addLight(0xffe0a0, 2.0, 0, 0.5, -8.0, 10);
-addLight(0xffe0a0, 1.5, 0, 3.3, -8.5, 10);
-// Balcony underlight
-addLight(0xffdd90, 1.5, -1, F2Y-0.3, -8.8, 8);
-addLight(0xffdd90, 1.5, -2, F3Y-0.3, -9.5, 8);
-// Green wall wash
-addLight(0x80ff40, 1.0, -5, F2Y+1.5, -5.0, 6);
-
-// ══════════════════════════════════════════════
-//  PRIMER PISO — INTERNAL WALLS
-// ══════════════════════════════════════════════
-
-// Kitchen wall (separating kitchen from sala, partial)
-wall(WT, WH, 4, M.wall, 4, WH/2+F1Y, -2);
-// Kitchen back wall piece
-wall(5, WH, WT, M.wall, 7, WH/2+F1Y, -4);
-// Bathroom walls
-wall(2.5, WH, WT, M.wallClean, -2.25, WH/2+F1Y, -4);
-wall(WT, WH, 2, M.wallClean, -3.5, WH/2+F1Y, -3);
-// Stair enclosure wall
-wall(WT, WH, 3, M.wall, 1, WH/2+F1Y, -3.5);
-wall(3, WH, WT, M.wall, -0.5, WH/2+F1Y, -5);
-
-// Pool border walls (low)
-wall(0.2, 1.0, 8, M.poolTile, -10.1, 0.5, 1);
-wall(7.5, 1.0, 0.2, M.poolTile, -13.75, 0.5, -2);
-wall(7.5, 1.0, 0.2, M.poolTile, -13.75, 0.5, 6);
-
-// ══════════════════════════════════════════════
-//  PRIMER PISO — FLOORS & CEILINGS
-// ══════════════════════════════════════════════
-floor(20, 11, M.floor, 0, F1Y, -0.5);          // main interior
-floor(7.5, 8, M.concrete, -13.75, F1Y, 2);     // pool deck
-floor(8, 7, M.concrete, 14, F1Y, 0.5);         // garage
-ceiling(20, 11, M.ceilingMat, 0, WH+F1Y, -0.5);
-ceiling(8, 7, M.ceilingMat, 14, WH+F1Y, 0.5);
-
-// ══════════════════════════════════════════════
-//  POOL
-// ══════════════════════════════════════════════
-box(6, 0.5, 6, M.poolTile, -13.5, -0.25, 2);
-box(5.5, 0.3, 5.5, M.water, -13.5, 0.15, 2, false, true);
-
-// ══════════════════════════════════════════════
-//  GARAGE WALLS & DOOR
-// ══════════════════════════════════════════════
-wall(WT, WH, 7, M.wallExterior, 10, WH/2, 0.5);
-wall(8, WH, WT, M.wallExterior, 14, WH/2, -3);
-wall(8, WH, WT, M.wallExterior, 14, WH/2, 4);
-wall(WT, WH, 7, M.wallExterior, 18, WH/2, 0.5);
-floor(8, 7, M.concrete, 14, F1Y, 0.5);
-ceiling(8, 7, M.ceilingMat, 14, WH+F1Y, 0.5);
-// Garage door (glass-ish)
-box(7, 2.5, 0.1, M.glass, 14, 1.25, -3.05, false, true);
-
-// Cars
-{
-  const carGroup = ()=>{
-    const g=new THREE.Group();
-    box(2,0.7,4,M.carBody,0,0.35,0,true,true,false).removeFromParent();
-    const body=new THREE.Mesh(new THREE.BoxGeometry(2,0.7,4),M.carBody);
-    body.position.set(0,0.35,0); g.add(body);
-    const top=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.6,2.2),M.carBody);
-    top.position.set(0,0.95,0.3); g.add(top);
-    const wheel=()=>{
-      const w=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.3,0.2,12),M.dark);
-      w.rotation.z=Math.PI/2; return w;
-    };
-    [[1.1,0.3,1.2],[-1.1,0.3,1.2],[1.1,0.3,-1.2],[-1.1,0.3,-1.2]].forEach(([x,y,z])=>{
-      const w=wheel(); w.position.set(x,y,z); g.add(w);
-    });
-    const win=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.5,0.05),M.glass);
-    win.position.set(0,1.0,1.4); g.add(win);
-    return g;
-  };
-  const c1=carGroup(); c1.position.set(12,0,-0.5); scene.add(c1);
-  const c2=carGroup(); c2.position.set(16,0,-0.5);
-  const c2mat=new THREE.MeshStandardMaterial({color:0xe0d0c0,roughness:0.3,metalness:0.7});
-  c2.traverse(m=>{if(m.isMesh&&m.material===M.carBody)m.material=c2mat;});
-  scene.add(c2);
-}
-
-// ══════════════════════════════════════════════
-//  PRIMER PISO — FURNITURE
-// ══════════════════════════════════════════════
-// SOFA L-shape
-box(3.0, 0.4, 0.9, M.sofaLight, -3, 0.2+F1Y, 1.5);  // main seat
-box(0.9, 0.4, 2.2, M.sofaLight, -4.35, 0.2+F1Y, 1.9); // left arm
-box(3.0, 0.6, 0.15, M.sofaLight, -3, 0.5+F1Y, 2.4);  // backrest
-box(0.9, 0.6, 2.2, M.sofaLight, -4.35, 0.5+F1Y, 1.35); // side back
-// Coffee table
-box(1.2, 0.08, 0.7, M.tableTop, -2.5, 0.5+F1Y, 1.8);
-box(0.06, 0.5, 0.06, M.metal, -2.1, 0.25+F1Y, 1.5);
-box(0.06, 0.5, 0.06, M.metal, -2.9, 0.25+F1Y, 1.5);
-box(0.06, 0.5, 0.06, M.metal, -2.1, 0.25+F1Y, 2.1);
-box(0.06, 0.5, 0.06, M.metal, -2.9, 0.25+F1Y, 2.1);
-// TV wall unit
-box(3, 0.05, 0.5, M.cabinetWood, -3, 0.6+F1Y, 3.9);
-box(2.8, 0.02, 0.45, M.dark, -3, 0.62+F1Y, 3.85); // TV screen
-box(3, 1.2, 0.4, M.cabinetWood, -3, 0.6+F1Y, 4.2);
-
-// Dining table
-box(2.0, 0.08, 1.0, M.tableTop, 2, 0.78+F1Y, 2.5);
-box(0.08, 0.78, 0.08, M.metal, 1.1, 0.39+F1Y, 2.05);
-box(0.08, 0.78, 0.08, M.metal, 2.9, 0.39+F1Y, 2.05);
-box(0.08, 0.78, 0.08, M.metal, 1.1, 0.39+F1Y, 2.95);
-box(0.08, 0.78, 0.08, M.metal, 2.9, 0.39+F1Y, 2.95);
-// Chairs around dining table
-[[1.1,2.5],[2.9,2.5],[2,1.7],[2,3.3]].forEach(([tx,tz])=>{
-  box(0.5,0.06,0.5,M.sofa,tx,0.45+F1Y,tz);
-  box(0.5,0.5,0.07,M.sofa,tx,0.7+F1Y,tz+0.25*(tz<2.5?1:-1));
-  box(0.05,0.45,0.05,M.metal,tx-0.2,0.22+F1Y,tz-0.2);
-  box(0.05,0.45,0.05,M.metal,tx+0.2,0.22+F1Y,tz-0.2);
-  box(0.05,0.45,0.05,M.metal,tx-0.2,0.22+F1Y,tz+0.2);
-  box(0.05,0.45,0.05,M.metal,tx+0.2,0.22+F1Y,tz+0.2);
-});
-
-// Kitchen counter
-box(3.5, 0.9, 0.6, M.cabinetWood, 7, 0.45+F1Y, -2);
-box(3.5, 0.05, 0.65, M.white, 7, 0.92+F1Y, -2);
-box(0.6, 1.8, 0.6, M.cabinetWood, 5, 0.9+F1Y, -2);  // tall cabinet
-box(3.5, 0.9, 0.6, M.cabinetWood, 7, 0.45+F1Y, -4);  // island
-box(3.5, 0.05, 0.65, M.white, 7, 0.92+F1Y, -4);
-// Sink
-box(0.6, 0.1, 0.5, M.metal, 6, 0.97+F1Y, -2);
-// Stove
-box(0.6, 0.05, 0.55, M.dark, 7.5, 0.97+F1Y, -2);
-// Upper cabinets
-box(3.5, 0.7, 0.35, M.cabinetWood, 7, 2.3+F1Y, -2);
-
-// Stairs piso 1→2
-{
-  const steps=10;
-  for(let i=0;i<steps;i++){
-    box(1.8, 0.1, 0.3, M.wood, -0.5, i*0.3+0.05, -4.2+i*0.3, true, true);
-  }
-}
-
-// Plants exterior
-plant(-11.5, 0, -5, 1.2);
-plant(11.5, 0, -5.5, 1.0);
-palmTree(18, 0, 8);
-palmTree(-16, 0, -5);
-plant(-12, 0, 6, 1.5);
-plant(-8, 0, -4, 1.0);
-
-// ══════════════════════════════════════════════
-//  SEGUNDO PISO
-// ══════════════════════════════════════════════
-
-// Main structure walls (front facade built above in detailed section)
-wall(20, WH, WT, M.wallExterior, 0, F2Y+WH/2, 5);
-wall(WT, WH, 11, M.wallExterior, -10, F2Y+WH/2, -0.5);
-wall(WT, WH, 11, M.wallExterior, 10, F2Y+WH/2, -0.5);
-
-// Internal walls piso 2
-// Dividing hallway / bedrooms
-wall(WT, WH, 8, M.wall, -3, F2Y+WH/2, -0.5); // central corridor wall
-// Hab 1 walls
-wall(7, WH, WT, M.wall, -6.5, F2Y+WH/2, -1);
-// Hab 2 divider
-wall(7, WH, WT, M.wall, -6.5, F2Y+WH/2, 2);
-// Hab 3 walls
-wall(WT, WH, 4, M.wall, 4, F2Y+WH/2, 0.5);
-// Baño piso 2
-wall(3, WH, WT, M.wallClean, -1.5, F2Y+WH/2, -3.5);
-wall(WT, WH, 2.5, M.wallClean, -3, F2Y+WH/2, -4.75);
-
-// Floors & ceilings piso 2
-floor(20, 11, M.wood, 0, F2Y, -0.5);
-floor(4, 3, M.concrete, 7, F2Y, 2.5); // balcony
-ceiling(20, 11, M.ceilingMat, 0, F2Y+WH, -0.5);
-// Balcony railing
-wall(4, 1.0, 0.1, M.glass, 7, F2Y+0.5, 4.0);
-wall(0.1, 1.0, 3, M.glass, 5, F2Y+0.5, 2.5);
-
-// Stairs piso 2→3
+// ── FACHADA P2 (Z = P2Z1 = -9.0, ancho 8 m) ──────────────────────────────────
+box(8.0,0.22,1.0,M.wallExterior,0,F2Y+0.11,P2Z1+0.5,false,true);
+box(7.8,0.04,0.08,M.ledStrip,0,F2Y-0.02,P2Z1+0.45,false,false);
+// Muro verde lado izq (4 m)
+box(4.0,WH,0.25,M.greenWall,P2X1+2.0,F2Y+WH/2,P2Z1,true,true);
 for(let i=0;i<10;i++){
-  box(1.8, 0.1, 0.3, M.wood, 0.5, F2Y+i*0.3+0.05, -4.2+i*0.3, true, true);
+  const bx=P2X1+0.3+Math.random()*3.4, by=F2Y+0.35+Math.random()*2.2, s=0.22+Math.random()*0.3;
+  const lump=new THREE.Mesh(new THREE.SphereGeometry(s,6,4),M.plantGreen);
+  lump.position.set(bx,by,P2Z1+0.14); scene.add(lump);
+}
+// Lamas madera lado der (4 m)
+for(let i=0;i<12;i++) box(3.8,0.13,0.18,M.louver,P2X2-1.9,F2Y+0.15+i*0.24,P2Z1+0.01,true,true);
+// Balcón P2
+box(8.0,0.2,1.5,M.concrete,0,F2Y-0.1,P2Z1-0.75,false,true);
+box(8.0,1.0,0.06,M.glass,0,F2Y+0.5,P2Z1-1.45,false,true);
+box(0.06,1.0,1.5,M.glass,P2X1,F2Y+0.5,P2Z1-0.75,false,true);
+box(0.06,1.0,1.5,M.glass,P2X2,F2Y+0.5,P2Z1-0.75,false,true);
+box(7.8,0.04,0.08,M.ledStrip,0,F2Y-0.22,P2Z1-1.40,false,false);
+
+// ── FACHADA ALTILLO P3 (Z = P1Z1 = -8.0, ancho 6 m) ─────────────────────────
+wall(P1X2-P1X1,WH,WT,M.wallExterior,0,F3Y+WH/2,P1Z1);
+box(4.0,1.8,0.08,M.glass,-0.5,F3Y+1.2,P1Z1-0.01,false,true);
+box(0.10,WH,0.10,M.darkFrame,P1X1+0.44,F3Y+WH/2,P1Z1-0.01);
+box(6.0,0.2,1.5,M.concrete,0,F3Y-0.1,P1Z1-0.75,false,true);
+box(6.0,1.0,0.06,M.glass,0,F3Y+0.5,P1Z1-1.45,false,true);
+box(0.06,1.0,1.5,M.glass,P1X1,F3Y+0.5,P1Z1-0.75,false,true);
+box(0.06,1.0,1.5,M.glass,P1X2,F3Y+0.5,P1Z1-0.75,false,true);
+box(5.8,0.04,0.08,M.ledStrip,0,F3Y-0.22,P1Z1-1.40,false,false);
+// Pérgola madera altillo
+{
+  const pergH=F3Y+WH+0.3;
+  box(6.0,0.15,3.5,M.louver,0,pergH+0.1,P1Z1-0.75,true,true);
+  for(let i=0;i<8;i++) box(0.12,0.22,3.5,M.louver,P1X1+0.4+i*0.77,pergH+0.22,P1Z1-0.75,true,true);
+  box(5.8,0.04,0.08,M.ledStrip,0,pergH+0.02,P1Z1-0.3,false,false);
+}
+// Spots de fachada
+addLight(0xffcc80,3.0,P1X2-0.25,1.5,P1Z1-0.15,6);
+addLight(0xffcc80,2.5,P1X2-0.25,4.8,P1Z1-0.15,5);
+addLight(0xffe0a0,2.0,0,0.5,P1Z1-3.8,8);
+addLight(0xffdd90,1.5,0,F2Y-0.3,P2Z1-1.40,7);
+addLight(0xffdd90,1.5,0,F3Y-0.3,P1Z1-1.40,6);
+addLight(0x80ff40,1.0,P2X1+2.0,F2Y+1.5,P2Z1+0.2,5);
+
+// ══════════════════════════════════════════════
+//  PISO 1 — PAREDES INTERNAS
+//  Sala + Comedor: Z -8 a -4.5 (frente)
+//  Cocina + Baño:  Z -4.5 a -1.8 (fondo)
+// ══════════════════════════════════════════════
+// Partición Z=-4.5: izq 2.5m + apertura 1m + der 2.5m
+wall(2.5,WH,WT,M.wall,-1.75,WH/2,-4.5);  // X: -3→-0.5
+wall(2.5,WH,WT,M.wall, 1.75,WH/2,-4.5);  // X:  0.5→3
+// Divisor Cocina/Baño en X=0.5 (Z: -4.5 a -1.8, profundidad 2.7m)
+wall(WT,WH,2.7,M.wall,0.5,WH/2,-3.15);
+// Piso y techo P1
+floor(P1X2-P1X1,P1Z2-P1Z1,M.floor,0,F1Y,P1CZ);
+ceiling(P1X2-P1X1,P1Z2-P1Z1,M.ceilingMat,0,WH+F1Y,P1CZ);
+// Ventanas laterales P1
+box(0.08,1.2,1.0,M.glass,P1X1+0.01,1.4,-6.5);
+box(0.08,1.2,1.0,M.glass,P1X2-0.01,1.4,-5.5);
+box(2.0,1.2,0.08,M.glass,-0.5,1.4,P1Z2-0.01);
+
+// ══════════════════════════════════════════════
+//  PISCINA — 6m × 3m, centro (-0.5, 5.5)
+// ══════════════════════════════════════════════
+floor(7.5,4.5,M.concrete,PX,0.02,PZ+0.2);
+box(6.0,0.5,3.0,M.poolTile,PX,-0.25,PZ);
+box(5.5,0.3,2.5,M.water,PX,0.15,PZ,false,true);
+wall(6.2,0.85,WT,M.poolTile,PX,0.42,PZ-1.55);
+wall(6.2,0.85,WT,M.poolTile,PX,0.42,PZ+1.55);
+wall(WT,0.85,3.1,M.poolTile,PX-3.1,0.42,PZ);
+wall(WT,0.85,3.1,M.poolTile,PX+3.1,0.42,PZ);
+
+// ══════════════════════════════════════════════
+//  MOBILIARIO PISO 1
+// ══════════════════════════════════════════════
+// Sofá L (sala — zona izq frente)
+box(2.4,0.40,0.85,M.sofaLight,-1.0,0.20,P1Z1+1.0);
+box(0.85,0.40,1.80,M.sofaLight,-2.1,0.20,P1Z1+1.5);
+box(2.4,0.58,0.14,M.sofaLight,-1.0,0.49,P1Z1+0.15);
+box(0.85,0.58,1.80,M.sofaLight,-2.1,0.49,P1Z1+1.3);
+// Mesa de centro
+box(0.9,0.08,0.55,M.tableTop,-1.0,0.42,P1Z1+1.2);
+[[-0.35,-0.22],[-0.35,0.22],[0.35,-0.22],[0.35,0.22]].forEach(([ox,oz])=>
+  box(0.05,0.4,0.05,M.metal,-1.0+ox,0.20,P1Z1+1.2+oz));
+// Mueble TV (pared trasera zona sala)
+box(1.6,0.04,0.45,M.cabinetWood,-1.0,0.60,-4.6);
+box(1.4,0.02,0.40,M.dark,-1.0,0.62,-4.6);
+box(1.6,0.90,0.35,M.cabinetWood,-1.0,0.48,-4.58);
+// Mesa comedor (zona der frente)
+box(1.5,0.07,0.8,M.tableTop,1.3,0.77,P1Z1+1.5);
+[[0.55,P1Z1+1.1],[2.05,P1Z1+1.1],[0.55,P1Z1+1.9],[2.05,P1Z1+1.9]].forEach(([tx,tz])=>{
+  box(0.44,0.06,0.44,M.sofa,tx,0.45,tz);
+  box(0.44,0.48,0.07,M.sofa,tx,0.70,tz+(tz<P1Z1+1.5?0.22:-0.22));
+  [[-0.17,-0.17],[-0.17,0.17],[0.17,-0.17],[0.17,0.17]].forEach(([ex,ez])=>
+    box(0.04,0.44,0.04,M.metal,tx+ex,0.22,tz+ez));
+});
+// Cocina (X: 0.5→3, Z: -4.5→-1.8)
+box(1.8,0.90,0.60,M.cabinetWood,1.7,0.45,-2.3);
+box(1.8,0.05,0.65,M.white,1.7,0.93,-2.3);
+box(0.7,1.80,0.60,M.cabinetWood,2.6,0.90,-2.3);
+box(0.5,0.10,0.45,M.metal,1.3,0.97,-2.3);
+box(0.5,0.05,0.50,M.dark,1.85,0.97,-2.3);
+box(1.8,0.65,0.32,M.cabinetWood,1.7,2.28,-2.3);
+// Baño social (X: -3→0.5, Z: -4.5→-1.8)
+box(0.55,0.85,0.55,M.white,-2.3,0.42,-2.3);
+box(0.45,0.10,0.40,M.metal,-1.3,0.80,-2.3);
+// Escalera P1→P2: 10 peldaños 0.3m alto × 0.6m fondo, 1m ancho, arranca en Z=-4.0
+for(let i=0;i<10;i++)
+  box(1.0,0.10,0.28,M.wood,0,i*0.3+0.05,-4.0+i*0.58,true,true);
+// Plantas exteriores
+plant(P1X1-0.5,0,-9.5,1.1); plant(P1X2+0.5,0,-9.5,1.1);
+palmTree(-LX-1.5,0,4.0); palmTree(LX+1.5,0,4.0);
+plant(-LX+0.5,0,LZB-1.5,1.2); plant(LX-0.5,0,LZB-1.5,1.2);
+plant(PX-3.5,0,PZ+2.5,0.9); plant(PX+3.5,0,PZ+2.5,0.9);
+
+// ══════════════════════════════════════════════
+//  PISO 2 — 8m × 8m = 64 m²
+// ══════════════════════════════════════════════
+// Losa entrepiso P2 (8×8)
+box(P2X2-P2X1,0.22,P2Z2-P2Z1,M.roof,0,F2Y-0.11,P2CZ,false,false);
+// Paredes exteriores P2
+wall(P2X2-P2X1,WH,WT,M.wallExterior,0,F2Y+WH/2,P2Z2);          // trasera
+wall(WT,WH,P2Z2-P2Z1,M.wallExterior,P2X1,F2Y+WH/2,P2CZ);       // izq
+wall(WT,WH,P2Z2-P2Z1,M.wallExterior,P2X2,F2Y+WH/2,P2CZ);       // der
+// Paredes internas P2
+// Pasillo: X=0, Z de P2Z1 a -5.5 (3.5m)
+wall(WT,WH,3.5,M.wall,0,F2Y+WH/2,-7.25);
+// Separador Hab1/Hab2: Z=-5.5, X de P2X1 a 0
+wall(4.0,WH,WT,M.wall,-2.0,F2Y+WH/2,-5.5);
+// Separador Hab Master: X=1.5, Z de P2Z1 a -3.5 (5.5m)
+wall(WT,WH,5.5,M.wallClean,1.5,F2Y+WH/2,-6.25);
+// Separador Baño Master: Z=-3.5, X de 1.5 a P2X2
+wall(2.5,WH,WT,M.wallClean,2.75,F2Y+WH/2,-3.5);
+// Baño compartido: caja 1.5×2 m en esquina corredor
+wall(1.5,WH,WT,M.wallClean,0.75,F2Y+WH/2,-5.5);
+wall(1.5,WH,WT,M.wallClean,0.75,F2Y+WH/2,-3.5);
+wall(WT,WH,2.0,M.wallClean,0,F2Y+WH/2,-4.5);
+// Pisos y techos P2
+floor(P2X2-P2X1,P2Z2-P2Z1,M.wood,0,F2Y,P2CZ);
+ceiling(P2X2-P2X1,P2Z2-P2Z1,M.ceilingMat,0,F2Y+WH,P2CZ);
+// Ventanas P2
+box(0.08,1.2,1.0,M.glass,P2X1+0.01,F2Y+1.4,-7.0);
+box(0.08,1.2,1.0,M.glass,P2X1+0.01,F2Y+1.4,-4.0);
+box(0.08,1.2,1.0,M.glass,P2X2-0.01,F2Y+1.4,-7.0);
+box(2.0,1.2,0.08,M.glass,0,F2Y+1.4,P2Z2-0.01);
+// Escalera P2→P3
+for(let i=0;i<10;i++)
+  box(1.0,0.10,0.28,M.wood,0.4,F2Y+i*0.3+0.05,-4.0+i*0.58,true,true);
+// Mobiliario P2
+const beds=(bx,bz,fl)=>{
+  box(1.6,0.25,2.0,M.bedWhite,bx,fl+0.25,bz);
+  box(1.6,0.10,2.1,M.sofaLight,bx,fl+0.31,bz);
+  box(1.6,0.58,0.14,M.cabinetWood,bx,fl+0.54,bz+1.0);
+  box(0.45,0.50,0.38,M.sofaLight,bx-0.45,fl+0.50,bz+1.0);
+  box(0.45,0.50,0.38,M.sofaLight,bx+0.45,fl+0.50,bz+1.0);
+  box(0.42,0.58,0.38,M.cabinetWood,bx-0.95,fl+0.29,bz+0.7);
+  box(0.42,0.58,0.38,M.cabinetWood,bx+0.95,fl+0.29,bz+0.7);
+};
+beds( 2.8,-7.5,F2Y);   // Hab Master
+beds(-2.5,-7.8,F2Y);   // Hab 1
+beds(-2.5,-4.0,F2Y);   // Hab 2
+box(1.6,2.4,0.38,M.cabinetWood,3.3,F2Y+1.2,P2Z2-0.6);   // closet master
+box(1.1,0.05,0.52,M.tableTop,-2.4,F2Y+0.75,P2Z2-0.6);
+box(0.04,0.74,0.04,M.metal,-1.95,F2Y+0.37,P2Z2-0.36);
+box(0.04,0.74,0.04,M.metal,-2.85,F2Y+0.37,P2Z2-0.36);
+
+// ══════════════════════════════════════════════
+//  ALTILLO (P3) — 6m × 6.2m = 37 m²
+// ══════════════════════════════════════════════
+// Losa entrepiso P3 (8×8 — mismo vuelo de P2)
+box(P2X2-P2X1,0.22,P2Z2-P2Z1,M.roof,0,F3Y-0.11,P2CZ,false,false);
+// Paredes exteriores altillo
+wall(P1X2-P1X1,WH,WT,M.wallExterior,0,F3Y+WH/2,P1Z2);
+wall(WT,WH,P1Z2-P1Z1,M.wallExterior,P1X1,F3Y+WH/2,P1CZ);
+wall(WT,WH,P1Z2-P1Z1,M.wallExterior,P1X2,F3Y+WH/2,P1CZ);
+// Baño suite (X: 0.5→3, Z: -4.5→-1.8)
+wall(WT,WH,2.7,M.wallClean,0.5,F3Y+WH/2,-3.15);
+wall(2.5,WH,WT,M.wallClean,1.75,F3Y+WH/2,-4.5);
+// Barandal terraza
+wall(WT,1.0,2.7,M.glass,0.5,F3Y+0.5,-3.15);
+wall(2.3,1.0,WT,M.glass,-0.65,F3Y+0.5,P1Z2-0.03);
+// Pisos: suite en madera, terraza en concreto
+floor(P1X2-P1X1,P1Z2-P1Z1,M.wood,0,F3Y,P1CZ);
+ceiling(P1X2-P1X1,P1Z2-P1Z1,M.ceilingMat,0,F3Y+WH,P1CZ);
+floor(P2X2-P2X1,P2Z2-P2Z1,M.concrete,0,F3Y+0.01,P2CZ);  // terraza completa
+// Ventanas altillo
+box(0.08,1.2,1.0,M.glass,P1X1+0.01,F3Y+1.4,-6.5);
+box(0.08,1.2,1.0,M.glass,P1X2-0.01,F3Y+1.4,-5.5);
+// Mobiliario altillo
+beds(0.0,-7.0,F3Y);
+box(0.68,0.35,0.68,M.sofaLight,-2.0,F3Y+0.35,-3.2);
+box(0.68,0.50,0.12,M.sofaLight,-2.0,F3Y+0.60,-3.58);
+box(1.1,0.05,0.50,M.tableTop,1.6,F3Y+0.75,-3.0);
+box(0.04,0.74,0.04,M.metal,1.15,F3Y+0.37,-2.76);
+box(0.04,0.74,0.04,M.metal,2.05,F3Y+0.37,-2.76);
+
+// ══════════════════════════════════════════════
+//  CUBIERTA + PRETIL
+// ══════════════════════════════════════════════
+box(P1X2-P1X1,0.25,P1Z2-P1Z1,M.roof,0,F3Y+WH+0.125,P1CZ,false,false);
+wall(P1X2-P1X1,0.8,WT,M.wallExterior,0,F3Y+WH+0.4,P1Z1);
+wall(P1X2-P1X1,0.8,WT,M.wallExterior,0,F3Y+WH+0.4,P1Z2);
+wall(WT,0.8,P1Z2-P1Z1,M.wallExterior,P1X1,F3Y+WH+0.4,P1CZ);
+wall(WT,0.8,P1Z2-P1Z1,M.wallExterior,P1X2,F3Y+WH+0.4,P1CZ);
+
+// ══════════════════════════════════════════════
+//  GARAJE — X:0.5→4.2, Z:LZF→P1Z1
+// ══════════════════════════════════════════════
+floor(GX2-GX1,GZ2-GZ1,M.concrete,GCX,0.02,GCZ);
+wall(WT,2.5,GZ2-GZ1,M.wallExterior,GX2,1.25,GCZ);
+wall(WT,2.5,GZ2-GZ1,M.wallExterior,GX1,1.25,GCZ);
+box(GX2-GX1,0.2,GZ2-GZ1,M.roof,GCX,2.6,GCZ,false,false);
+box(GX2-GX1-0.3,2.4,0.08,M.glass,GCX,1.2,GZ1+0.04,false,true);
+box(GX2-GX1,0.1,0.12,M.darkFrame,GCX,2.45,GZ1);
+// Carro en garaje
+{
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.BoxGeometry(1.8,0.65,3.8),M.carBody);
+  body.position.set(0,0.32,0); g.add(body);
+  const top=new THREE.Mesh(new THREE.BoxGeometry(1.4,0.55,2.0),M.carBody);
+  top.position.set(0,0.87,0.2); g.add(top);
+  [[0.95,0.3,1.1],[-0.95,0.3,1.1],[0.95,0.3,-1.1],[-0.95,0.3,-1.1]].forEach(([x,y,z])=>{
+    const w=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.28,0.18,12),M.dark);
+    w.rotation.z=Math.PI/2; w.position.set(x,y,z); g.add(w);
+  });
+  const win=new THREE.Mesh(new THREE.BoxGeometry(1.3,0.45,0.05),M.glass);
+  win.position.set(0,0.9,1.25); g.add(win);
+  g.position.set(GCX,0,GCZ+0.5); scene.add(g);
 }
 
-// Bedroom furniture ─ Hab 1 (left)
-const h1x=-6.5, h1z=-0, beds=(bx,bz,fl)=>{
-  box(1.8,0.25,2.0,M.bedWhite,bx,fl+0.25,bz);      // mattress
-  box(1.8,0.1,2.1,M.sofaLight,bx,fl+0.31,bz);       // sheet
-  box(1.8,0.6,0.15,M.cabinetWood,bx,fl+0.55,bz+1.0); // headboard
-  box(0.5,0.5,0.4,M.sofaLight,bx-0.5,fl+0.5,bz+1.1); // pillow
-  box(0.5,0.5,0.4,M.sofaLight,bx+0.5,fl+0.5,bz+1.1); // pillow
-  box(0.45,0.6,0.4,M.cabinetWood,bx-1.2,fl+0.3,bz+0.7); // nightstand
-  box(0.45,0.6,0.4,M.cabinetWood,bx+1.2,fl+0.3,bz+0.7);
-};
-beds(-6.5, -0.3, F2Y);
-beds(-6.5, 3.2, F2Y);
-
-// Hab 3 master (right side)
-beds(6.5, 1.0, F2Y);
-// Closet
-box(2.0, 2.5, 0.4, M.cabinetWood, 6.5, F2Y+1.25, 4.5);
-box(2.0, 2.5, 0.4, M.cabinetWood, 8.5, F2Y+1.25, 1.5);
-
-// ══════════════════════════════════════════════
-//  ALTILLO
-// ══════════════════════════════════════════════
-
-// Walls (front facade built in detailed section above)
-wall(12, WH, WT, M.wallExterior, -2, F3Y+WH/2, 5);
-wall(WT, WH, 11, M.wallExterior, -8, F3Y+WH/2, -0.5);
-wall(WT, WH, 11, M.wallExterior, 4, F3Y+WH/2, -0.5);
-
-// Internal walls altillo
-wall(WT, WH, 5, M.wallClean, 1, F3Y+WH/2, -2);   // baño divider
-wall(4, WH, WT, M.wallClean, -1, F3Y+WH/2, -2.5);
-// Terraza railing
-wall(0.1, 1.0, 8, M.glass, -9.9, F3Y+0.5, 0.5);
-wall(6, 1.0, 0.1, M.glass, -7, F3Y+0.5, -5.5);
-
-floor(12, 11, M.wood, -2, F3Y, -0.5);           // suite floor
-floor(6, 8, M.concrete, -7, F3Y, 0.5);           // terraza
-ceiling(12, 11, M.ceilingMat, -2, F3Y+WH, -0.5);
-ceiling(6, 8, M.roof, -7, F3Y+WH, 0.5);
-
-// Altillo suite furniture
-beds(-1.5, 0.5, F3Y);
-// Armchair
-box(0.7,0.35,0.7,M.sofaLight,-4,F3Y+0.35,-1);
-box(0.7,0.5,0.12,M.sofaLight,-4,F3Y+0.6,-1.35);
-// Desk
-box(1.5,0.05,0.6,M.tableTop,2,F3Y+0.75,-3);
-box(0.05,0.75,0.05,M.metal,1.3,F3Y+0.37,-2.7);
-box(0.05,0.75,0.05,M.metal,2.7,F3Y+0.37,-2.7);
-
-// ══════════════════════════════════════════════
-//  ROOF
-// ══════════════════════════════════════════════
-box(20, 0.3, 11, M.roof, 0, F2Y+WH+0.15, -0.5, false, false); // piso1 ceiling slab
-box(20, 0.3, 11, M.roof, 0, F3Y+WH+0.15, -0.5, false, false); // piso2
-box(12, 0.3, 11, M.roof, -2, F3Y+WH+0.45+0.15, -0.5, false, false); // altillo roof
-
-// ══════════════════════════════════════════════
-//  WINDOWS (glass panes on facades)
-// ══════════════════════════════════════════════
-// Front windows piso 1
-box(2.5, 1.8, 0.08, M.glass, -2, 1.2, -5.97);
-box(2.5, 1.8, 0.08, M.glass, 4, 1.2, -5.97);
-// Front windows piso 2
-box(3.5, 1.5, 0.08, M.glass, 1, F2Y+1.4, -5.97);
-box(1.5, 1.5, 0.08, M.glass, -4, F2Y+1.4, -5.97);
-// Side windows
-box(0.08, 1.2, 1.8, M.glass, -9.97, 1.5, 2);
-box(0.08, 1.2, 1.8, M.glass, -9.97, F2Y+1.5, 1);
-
-// ══════════════════════════════════════════════
-//  DOOR FRAMES (visual)
-// ══════════════════════════════════════════════
+// ── MARCOS DE PUERTAS ─────────────────────────────────────────────────────────
 function doorFrame(x,y,z,rot=0){
   const g=new THREE.Group();
-  const left=new THREE.Mesh(new THREE.BoxGeometry(0.1,2.2,0.15),M.woodDark);
-  left.position.set(-0.5,1.1,0); g.add(left);
-  const right=new THREE.Mesh(new THREE.BoxGeometry(0.1,2.2,0.15),M.woodDark);
-  right.position.set(0.5,1.1,0); g.add(right);
-  const top=new THREE.Mesh(new THREE.BoxGeometry(1.1,0.1,0.15),M.woodDark);
-  top.position.set(0,2.2,0); g.add(top);
-  g.position.set(x,y,z); g.rotation.y=rot;
-  scene.add(g);
+  [[-0.45],[0.45]].forEach(([ox])=>{
+    const j=new THREE.Mesh(new THREE.BoxGeometry(0.08,2.1,0.12),M.woodDark);
+    j.position.set(ox,1.05,0); g.add(j);
+  });
+  const top=new THREE.Mesh(new THREE.BoxGeometry(0.98,0.08,0.12),M.woodDark);
+  top.position.set(0,2.1,0); g.add(top);
+  g.position.set(x,y,z); g.rotation.y=rot; scene.add(g);
 }
-doorFrame(-8, F1Y, -6, 0);   // entrance main door
-doorFrame(0, F2Y, -5.97, 0); // piso 2 front
-doorFrame(-3.05, F2Y, -0.5, Math.PI/2); // hab 1 door
-doorFrame(-3.05, F2Y, 2.0, Math.PI/2);  // hab 2 door
-doorFrame(4.05, F2Y, 1.0, Math.PI/2);   // hab 3 door
+doorFrame(0,F1Y,-4.50,0);
+doorFrame(0.4,F2Y,-4.50,0);
+doorFrame(-2.0,F2Y,-5.55,Math.PI/2);
+doorFrame(-2.0,F2Y,-2.50,Math.PI/2);
+doorFrame(1.55,F2Y,-4.50,0);
+doorFrame(0.4,F3Y,-4.50,0);
+doorFrame(1.75,F3Y,-4.50,0);
 
-// ── EXTRA PLANTS & DETAILS ───────────────────
-plant(9, F1Y, 3, 1.3);
-plant(-9, F1Y, 4, 1.1);
-plant(3, F2Y, 4.2, 0.9);
-plant(-2, F3Y, 4.2, 1.0);
-
-// ─── NAVIGATION & COLLISION ──────────────────────────────────────────────────
-// Invisible floor colliders per level
-const floorColliders = [
-  // Piso 1 – interior rooms (order matters: more specific first)
-  { minX:-5,  maxX:4,   minZ:-1, maxZ:5,  y:F1Y,  name:'Sala · Comedor' },
-  { minX:4,   maxX:10,  minZ:-5, maxZ:1,  y:F1Y,  name:'Cocina' },
-  { minX:-4,  maxX:0,   minZ:-6, maxZ:-4, y:F1Y,  name:'Baño Social' },
-  { minX:-10, maxX:10,  minZ:-6, maxZ:5,  y:F1Y,  name:'Primer Piso' },
-  // Exterior piso 1
-  { minX:-17, maxX:-9,  minZ:-3, maxZ:7,  y:F1Y,  name:'Área Piscina' },
-  { minX:10,  maxX:18,  minZ:-3, maxZ:5,  y:F1Y,  name:'Garaje' },
-  // Piso 2
-  { minX:-10, maxX:-3,  minZ:-6, maxZ:2,  y:F2Y,  name:'Habitación 1' },
-  { minX:-10, maxX:-3,  minZ:2,  maxZ:5,  y:F2Y,  name:'Habitación 2' },
-  { minX:-3,  maxX:10,  minZ:-6, maxZ:5,  y:F2Y,  name:'Habitación 3 · Master' },
-  { minX:5,   maxX:9,   minZ:1,  maxZ:5,  y:F2Y,  name:'Balcón' },
-  { minX:-10, maxX:10,  minZ:-6, maxZ:5,  y:F2Y,  name:'Segundo Piso' },
-  // Altillo
-  { minX:-8,  maxX:4,   minZ:-6, maxZ:5,  y:F3Y,  name:'Suite Master' },
-  { minX:-11, maxX:-5,  minZ:-3, maxZ:5,  y:F3Y,  name:'Terraza' },
+// ─── NAVEGACIÓN Y COLISIONES ─────────────────────────────────────────────────
+const floorColliders=[
+  // P1 — Sala, Comedor, Cocina, Baño
+  {minX:P1X1,maxX:0.5, minZ:P1Z1,maxZ:-4.5,y:F1Y,name:'Sala'},
+  {minX:0.5, maxX:P1X2,minZ:P1Z1,maxZ:-4.5,y:F1Y,name:'Comedor'},
+  {minX:0.5, maxX:P1X2,minZ:-4.5,maxZ:P1Z2,y:F1Y,name:'Cocina'},
+  {minX:P1X1,maxX:0.5, minZ:-4.5,maxZ:P1Z2,y:F1Y,name:'Baño Social'},
+  {minX:P1X1,maxX:P1X2,minZ:P1Z1,maxZ:P1Z2,y:F1Y,name:'Primer Piso'},
+  // Garaje y Piscina
+  {minX:GX1,maxX:GX2,minZ:GZ1,maxZ:GZ2,y:F1Y,name:'Garaje'},
+  {minX:PX-3.5,maxX:PX+3.5,minZ:PZ-2.5,maxZ:PZ+2.5,y:F1Y,name:'Área Piscina'},
+  // P2 — Habitaciones
+  {minX:P2X1,maxX:0,  minZ:P2Z1,maxZ:-5.5,y:F2Y,name:'Habitación 1'},
+  {minX:P2X1,maxX:0,  minZ:-5.5,maxZ:P2Z2,y:F2Y,name:'Habitación 2'},
+  {minX:1.5, maxX:P2X2,minZ:P2Z1,maxZ:-3.5,y:F2Y,name:'Habitación Master'},
+  {minX:1.5, maxX:P2X2,minZ:-3.5,maxZ:P2Z2,y:F2Y,name:'Baño Master'},
+  {minX:0,   maxX:1.5, minZ:-5.5,maxZ:-3.5,y:F2Y,name:'Baño Compartido'},
+  {minX:P2X1,maxX:P2X2,minZ:P2Z1,maxZ:P2Z2,y:F2Y,name:'Segundo Piso'},
+  // P3 — Altillo
+  {minX:P1X1,maxX:0.5, minZ:P1Z1,maxZ:-4.5,y:F3Y,name:'Suite Master'},
+  {minX:0.5, maxX:P1X2,minZ:-4.5,maxZ:P1Z2,y:F3Y,name:'Baño Suite'},
+  {minX:P1X1,maxX:0.5, minZ:-4.5,maxZ:P1Z2,y:F3Y,name:'Terraza Altillo'},
+  {minX:P1X1,maxX:P1X2,minZ:P1Z1,maxZ:P1Z2,y:F3Y,name:'Altillo'},
+  // Exterior
+  {minX:-50,maxX:50,minZ:-50,maxZ:50,y:F1Y,name:'Exterior'},
 ];
-
-function getRoomName(px, py, pz){
+function getRoomName(px,py,pz){
   for(const r of floorColliders){
-    if(px>=r.minX && px<=r.maxX && pz>=r.minZ && pz<=r.maxZ){
-      const dy = Math.abs(py - r.y);
-      if(dy < 3.5) return r.name;
-    }
+    if(px>=r.minX&&px<=r.maxX&&pz>=r.minZ&&pz<=r.maxZ&&Math.abs(py-r.y)<3.5) return r.name;
   }
   return 'Exterior';
 }
 
-// Teleport zones (stairs)
-const teleports = [
-  { pos:new THREE.Vector3(-0.5, F1Y+0.05, -2.5), target:new THREE.Vector3(-0.5, F2Y+1.7, -1.5), label:'Subir al Piso 2' },
-  { pos:new THREE.Vector3(-0.5, F2Y+0.05, -2.5), target:new THREE.Vector3(-0.5, F1Y+1.7, -1.5), label:'Bajar al Piso 1' },
-  { pos:new THREE.Vector3(0.5, F2Y+0.05, -2.5),  target:new THREE.Vector3(0.5, F3Y+1.7, -1.5),  label:'Subir al Altillo' },
-  { pos:new THREE.Vector3(0.5, F3Y+0.05, -2.5),  target:new THREE.Vector3(0.5, F2Y+1.7, -1.5),  label:'Bajar al Piso 2' },
+// Teletransportes
+const teleports=[
+  {pos:new THREE.Vector3(0,  F1Y+0.05,-4.0),target:new THREE.Vector3(0,  F2Y+1.7,-2.5),label:'Subir al Piso 2'},
+  {pos:new THREE.Vector3(0,  F2Y+0.05,-2.5),target:new THREE.Vector3(0,  F1Y+1.7,-4.0),label:'Bajar al Piso 1'},
+  {pos:new THREE.Vector3(0.4,F2Y+0.05,-4.0),target:new THREE.Vector3(0.4,F3Y+1.7,-2.5),label:'Subir al Altillo'},
+  {pos:new THREE.Vector3(0.4,F3Y+0.05,-2.5),target:new THREE.Vector3(0.4,F2Y+1.7,-4.0),label:'Bajar al Piso 2'},
 ];
-
-// Stair arrows
+const stairMat=new THREE.MeshStandardMaterial({color:0xf0c060,emissive:0xf0c060,emissiveIntensity:0.4});
 teleports.forEach(tp=>{
-  const geo = new THREE.ConeGeometry(0.2, 0.5, 6);
-  const mat = new THREE.MeshStandardMaterial({ color:0xf0c060, emissive:0xf0c060, emissiveIntensity:0.4 });
-  const cone = new THREE.Mesh(geo, mat);
-  const isUp = tp.label.includes('Subir');
-  cone.position.copy(tp.pos).add(new THREE.Vector3(0, 0.6, 0));
-  cone.rotation.x = isUp ? 0 : Math.PI;
-  scene.add(cone);
+  const cone=new THREE.Mesh(new THREE.ConeGeometry(0.18,0.45,6),stairMat);
+  cone.position.copy(tp.pos).add(new THREE.Vector3(0,0.55,0));
+  cone.rotation.x=tp.label.includes('Subir')?0:Math.PI; scene.add(cone);
 });
 
-// ─── COTAS (DIMENSION LINES) ─────────────────────────────────────────────────
-const cotasGroup = new THREE.Group();
-cotasGroup.visible = false;
-scene.add(cotasGroup);
-
-function makeCotaLine(x1,y1,z1, x2,y2,z2, color=0xf0c060){
-  const pts=[new THREE.Vector3(x1,y1,z1), new THREE.Vector3(x2,y2,z2)];
+// ─── COTAS (DIMENSIONES REALES) ───────────────────────────────────────────────
+const cotasGroup=new THREE.Group(); cotasGroup.visible=false; scene.add(cotasGroup);
+function makeCotaLine(x1,y1,z1,x2,y2,z2,color=0xf0c060){
+  const pts=[new THREE.Vector3(x1,y1,z1),new THREE.Vector3(x2,y2,z2)];
   const geo=new THREE.BufferGeometry().setFromPoints(pts);
   const mat=new THREE.LineBasicMaterial({color,depthTest:false,transparent:true,opacity:.85});
-  const line=new THREE.Line(geo,mat);
-  line.renderOrder=10;
-  cotasGroup.add(line);
+  const line=new THREE.Line(geo,mat); line.renderOrder=10; cotasGroup.add(line);
 }
-
 function makeCotaSprite(x,y,z,text){
-  const cv=document.createElement('canvas'); cv.width=256; cv.height=64;
+  const cv=document.createElement('canvas'); cv.width=280; cv.height=64;
   const ctx=cv.getContext('2d');
-  ctx.fillStyle='rgba(10,10,20,0.82)';
-  ctx.beginPath(); ctx.rect(4,4,248,56); ctx.fill();
-  ctx.strokeStyle='#f0c060'; ctx.lineWidth=2;
-  ctx.beginPath(); ctx.rect(4,4,248,56); ctx.stroke();
-  ctx.fillStyle='#f0e090'; ctx.font='bold 28px sans-serif';
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(text,128,34);
+  ctx.fillStyle='rgba(10,10,20,0.88)'; ctx.beginPath(); ctx.rect(3,3,274,58); ctx.fill();
+  ctx.strokeStyle='#f0c060'; ctx.lineWidth=2; ctx.beginPath(); ctx.rect(3,3,274,58); ctx.stroke();
+  ctx.fillStyle='#f0e090'; ctx.font='bold 26px sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(text,140,34);
   const tex=new THREE.CanvasTexture(cv);
   const mat=new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true});
-  const sp=new THREE.Sprite(mat); sp.scale.set(2,0.5,1);
-  sp.position.set(x,y,z); sp.renderOrder=11;
-  cotasGroup.add(sp);
+  const sp=new THREE.Sprite(mat); sp.scale.set(2.2,0.5,1);
+  sp.position.set(x,y,z); sp.renderOrder=11; cotasGroup.add(sp);
 }
-
-function makeCota(x1,y1,z1, x2,y2,z2, label, offX=0,offY=0.6,offZ=0){
-  const mx=(x1+x2)/2+offX, my=(y1+y2)/2+offY, mz=(z1+z2)/2+offZ;
-  // main line
-  makeCotaLine(x1,y1,z1, x2,y2,z2);
-  // tick ends
-  const dx=x2-x1, dz=z2-z1; const len=Math.sqrt(dx*dx+dz*dz)||1;
-  const nx=-dz/len*0.3, nz=dx/len*0.3;
-  makeCotaLine(x1-nx,y1,z1-nz, x1+nx,y1,z1+nz);
-  makeCotaLine(x2-nx,y2,z2-nz, x2+nx,y2,z2+nz);
+function makeCota(x1,y1,z1,x2,y2,z2,label,offX=0,offY=0.6,offZ=0){
+  const mx=(x1+x2)/2+offX,my=(y1+y2)/2+offY,mz=(z1+z2)/2+offZ;
+  makeCotaLine(x1,y1,z1,x2,y2,z2);
+  const dx=x2-x1,dz=z2-z1,len=Math.sqrt(dx*dx+dz*dz)||1;
+  const nx=-dz/len*0.3,nz=dx/len*0.3;
+  makeCotaLine(x1-nx,y1,z1-nz,x1+nx,y1,z1+nz);
+  makeCotaLine(x2-nx,y2,z2-nz,x2+nx,y2,z2+nz);
   makeCotaSprite(mx,my,mz,label);
 }
+// Dimensiones del lote
+makeCota(-LX,0.05,LZF-0.5,LX,0.05,LZF-0.5,'9.0 m — Frente del Lote');
+makeCota(LX+0.6,0.05,LZF,LX+0.6,0.05,LZB,'23.0 m — Fondo del Lote',0.5,0.3,0);
+// Huellas por piso
+makeCota(P1X1,0.05,P1Z1-0.8,P1X2,0.05,P1Z1-0.8,'6.0 m — P1 Ancho');
+makeCota(P1X1-0.8,0.05,P1Z1,P1X1-0.8,0.05,P1Z2,'6.2 m — P1 Fondo',0,0.3,0);
+makeCota(P2X1,0.05,P2Z1-1.1,P2X2,0.05,P2Z1-1.1,'8.0 m — P2 Ancho');
+makeCota(P2X1-1.1,0.05,P2Z1,P2X1-1.1,0.05,P2Z2,'8.0 m — P2 Fondo',0,0.3,0);
+// Alturas de piso
+const cHX=P1X2+1.0;
+makeCotaLine(cHX,F1Y,P1CZ,cHX,F2Y,P1CZ);
+makeCotaLine(cHX-0.25,F1Y,P1CZ,cHX+0.25,F1Y,P1CZ);
+makeCotaLine(cHX-0.25,F2Y,P1CZ,cHX+0.25,F2Y,P1CZ);
+makeCotaSprite(cHX+1.2,F1Y+(F2Y-F1Y)/2,P1CZ,'3.0 m P1');
+makeCotaLine(cHX,F2Y,P1CZ,cHX,F3Y,P1CZ);
+makeCotaLine(cHX-0.25,F3Y,P1CZ,cHX+0.25,F3Y,P1CZ);
+makeCotaSprite(cHX+1.2,F2Y+(F3Y-F2Y)/2,P1CZ,'3.0 m P2');
+makeCotaLine(cHX,F3Y,P1CZ,cHX,F3Y+WH,P1CZ);
+makeCotaLine(cHX-0.25,F3Y+WH,P1CZ,cHX+0.25,F3Y+WH,P1CZ);
+makeCotaSprite(cHX+1.2,F3Y+WH/2,P1CZ,'3.0 m P3');
+// Áreas por piso
+makeCotaSprite(P1X1-2.2,1.5,P1CZ,'P1: 37 m²');
+makeCotaSprite(P2X1-2.2,F2Y+1.5,P2CZ,'P2: 64 m²');
+makeCotaSprite(P1X1-2.2,F3Y+1.5,P1CZ,'P3: 37 m²');
+// Etiquetas habitaciones
+makeCotaSprite(-0.8,0.3,P1Z1+1.5,'Sala 3.5×3.5m');
+makeCotaSprite(1.5,0.3,P1Z1+1.5,'Comedor 2.5×3.5m');
+makeCotaSprite(1.7,0.3,-3.1,'Cocina 2.5×2.7m');
+makeCotaSprite(-1.3,0.3,-3.1,'Baño Social');
+makeCotaSprite(GCX,0.3,GCZ,'Garaje 3.7×3.5m');
+makeCotaSprite(PX,0.3,PZ,'Piscina 6×3m');
+makeCotaSprite(-2.0,F2Y+0.3,-7.5,'Hab 1 · 4×3.5m');
+makeCotaSprite(-2.0,F2Y+0.3,-4.5,'Hab 2 · 4×4.5m');
+makeCotaSprite(2.7,F2Y+0.3,-7.0,'Hab Master');
+makeCotaSprite(2.7,F2Y+0.3,-2.5,'Baño Master');
+makeCotaSprite(-0.5,F3Y+0.3,-6.0,'Suite Master');
+makeCotaSprite(1.8,F3Y+0.3,-3.0,'Baño Suite');
 
-// Key house dimensions
-// Horizontal floor plan (y=0.05)
-makeCota(-10,0.05,-7.5, 10,0.05,-7.5, '20.0 m'); // house width
-makeCota(-10.5,0.05,-6, -10.5,0.05,5, '11.0 m',0,0,0); // house depth
-makeCota(-17,0.05,-3.5, -11,0.05,-3.5, '6.0 m (Piscina)'); // pool length
-makeCota(10.5,0.05,-3,  10.5,0.05,5,  '8.0 m (Garaje)',0,0,0); // garage
-// Vertical (floor heights) at x=11
-makeCotaLine(11,.05,-7,  11,3.0,-7); // F1 height
-makeCotaLine(10.6,.05,-7,11.4,.05,-7);
-makeCotaLine(10.6,3.0,-7,11.4,3.0,-7);
-makeCotaSprite(12.2,1.5,-7,'3.0 m');
-makeCotaLine(11,3.0,-7,  11,6.0,-7);
-makeCotaLine(10.6,3.0,-7,11.4,3.0,-7);
-makeCotaLine(10.6,6.0,-7,11.4,6.0,-7);
-makeCotaSprite(12.2,4.5,-7,'3.0 m');
-// Room labels
-makeCotaSprite(0,0.1,0, 'Sala · 10×11 m');
-makeCotaSprite(-14,0.1,0,'Piscina · 6×3 m');
-makeCotaSprite(14,0.1,0, 'Garaje · 8×8 m');
-makeCotaSprite(2,F2Y+0.1,0,'Hab 3 Master · 13×11 m');
-makeCotaSprite(0,F3Y+0.1,0,'Suite Master');
-
-let cotasVisible = false;
-const btnCotas = document.getElementById('btn-cotas');
-btnCotas.addEventListener('click', ()=>{
-  cotasVisible = !cotasVisible;
-  cotasGroup.visible = cotasVisible;
-  btnCotas.classList.toggle('active', cotasVisible);
+let cotasVisible=false;
+const btnCotas=document.getElementById('btn-cotas');
+btnCotas.addEventListener('click',()=>{
+  cotasVisible=!cotasVisible;
+  cotasGroup.visible=cotasVisible;
+  btnCotas.classList.toggle('active',cotasVisible);
 });
 
 // ─── CUSTOM MOUSE-LOOK + DRAG CONTROLS ───────────────────────────────────────
@@ -1459,18 +1387,18 @@ function parseColor(str){
 
 // Teleport map
 const AI_PLACES = {
-  'exterior':   ()=>{ camera.position.set(-8,1.7,-18); yaw=Math.PI; },
-  'sala':       ()=>{ camera.position.set(0,F1Y+1.7,2); },
-  'cocina':     ()=>{ camera.position.set(7,F1Y+1.7,-2); },
-  'piscina':    ()=>{ camera.position.set(-13,F1Y+1.7,2); },
-  'garaje':     ()=>{ camera.position.set(14,F1Y+1.7,0); },
-  'piso 2':     ()=>{ camera.position.set(0,F2Y+1.7,0); },
-  'segundo piso':()=>{ camera.position.set(0,F2Y+1.7,0); },
-  'habitación': ()=>{ camera.position.set(0,F2Y+1.7,0); },
-  'altillo':    ()=>{ camera.position.set(0,F3Y+1.7,0); },
-  'suite':      ()=>{ camera.position.set(0,F3Y+1.7,0); },
-  'terraza':    ()=>{ camera.position.set(-8,F3Y+1.7,2); },
-  'fachada':    ()=>{ camera.position.set(-8,1.7,-18); yaw=Math.PI; },
+  'exterior':   ()=>{ camera.position.set(0,1.7,-14); yaw=Math.PI; },
+  'sala':       ()=>{ camera.position.set(-0.5,F1Y+1.7,P1Z1+1.5); },
+  'cocina':     ()=>{ camera.position.set(1.7,F1Y+1.7,-2.8); },
+  'piscina':    ()=>{ camera.position.set(PX,F1Y+1.7,PZ-2); },
+  'garaje':     ()=>{ camera.position.set(GCX,F1Y+1.7,GCZ); },
+  'piso 2':     ()=>{ camera.position.set(0,F2Y+1.7,-5.0); },
+  'segundo piso':()=>{ camera.position.set(0,F2Y+1.7,-5.0); },
+  'habitación': ()=>{ camera.position.set(-2.5,F2Y+1.7,-7.5); },
+  'altillo':    ()=>{ camera.position.set(0,F3Y+1.7,-6.0); },
+  'suite':      ()=>{ camera.position.set(0,F3Y+1.7,-6.0); },
+  'terraza':    ()=>{ camera.position.set(-1.5,F3Y+1.7,-3.0); },
+  'fachada':    ()=>{ camera.position.set(0,1.7,-14); yaw=Math.PI; },
 };
 
 function processAICommand(text){
@@ -1693,12 +1621,12 @@ setTimeout(()=>{
     scene.fog.color.set(v);
   });
   const camPos = {
-    'Exterior':   ()=>camera.position.set(-8, 1.7, -18),
-    'Sala':       ()=>camera.position.set(0, 1.7, 2),
-    'Cocina':     ()=>camera.position.set(7, 1.7, -2),
-    'Piso 2':     ()=>camera.position.set(0, F2Y+1.7, 0),
-    'Altillo':    ()=>camera.position.set(0, F3Y+1.7, 0),
-    'Piscina':    ()=>camera.position.set(-13, 1.7, 2),
+    'Exterior':   ()=>camera.position.set(0,1.7,-14),
+    'Sala':       ()=>camera.position.set(-0.5,1.7,-6.5),
+    'Cocina':     ()=>camera.position.set(1.7,1.7,-2.8),
+    'Piso 2':     ()=>camera.position.set(0,F2Y+1.7,-5.0),
+    'Altillo':    ()=>camera.position.set(0,F3Y+1.7,-6.0),
+    'Piscina':    ()=>camera.position.set(PX,1.7,PZ-2),
   };
   fCam.add({ ir:'Exterior' },'ir', Object.keys(camPos)).name('Ir a...').onChange(v=>{
     camPos[v](); isActive=true;
