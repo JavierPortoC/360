@@ -225,7 +225,7 @@
     <span>Drag</span> Mirar alrededor<br>
     <span>E</span> Usar escaleras<br>
     <span>Shift</span> Correr · <span>Space</span> Saltar<br>
-    <span>F</span> Volar — WASD sigue la cámara<br>
+    <span>F</span> Volar · <span>Space</span>/<span>X</span> Subir/Bajar<br>
     <span>Pills</span> Saltar a planta · <span>I</span> IA
   </div>
 
@@ -1172,7 +1172,7 @@ function toggleFly(on){
   if(msgs){
     const d = document.createElement('div'); d.className='ai-msg bot';
     d.innerHTML = flyMode
-      ? '🚁 Modo vuelo. <strong>WASD</strong> sigue la dirección de la cámara.'
+      ? '🚁 Modo vuelo. <strong>WASD</strong> sigue la cámara · <strong>Space</strong> sube · <strong>X</strong> baja.'
       : '🦶 Modo caminata activado.';
     msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight;
   }
@@ -1334,6 +1334,8 @@ function animate(){
       if(keys['KeyS']||keys['ArrowDown'])  cp.addScaledVector(fwd3,  -speed * delta);
       if(keys['KeyA']||keys['ArrowLeft'])  cp.addScaledVector(right3, -speed * delta);
       if(keys['KeyD']||keys['ArrowRight']) cp.addScaledVector(right3,  speed * delta);
+      if(keys['Space']) cp.y += speed * delta;  // Space = subir Y+
+      if(keys['KeyX'])  cp.y -= speed * delta;  // X     = bajar  Y-
     } else {
       // Walk mode: movement is always horizontal regardless of pitch
       const fwd  = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
