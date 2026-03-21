@@ -178,6 +178,66 @@
   }
   .floor-pill.active { background:#f0c060; color:#111; border-color:#f0c060; font-weight:600; }
   .floor-pill:hover:not(.active) { background:rgba(255,255,255,0.1); color:#fff; }
+
+  /* ─── Object Editor ─────────────────────────────── */
+  #edit-mode-bar {
+    position:fixed; top:0; left:0; width:100%; height:4px;
+    background:linear-gradient(90deg,#f0c060,#ff7040);
+    z-index:999; display:none; pointer-events:none;
+    box-shadow:0 0 10px rgba(240,192,96,.6);
+  }
+  #edit-panel {
+    position:fixed; right:20px; top:50%; transform:translateY(-50%);
+    width:264px; background:rgba(8,10,18,0.97);
+    border:1px solid rgba(240,192,96,0.45); border-radius:16px;
+    backdrop-filter:blur(14px); z-index:60; color:#fff;
+    pointer-events:all; display:none;
+    box-shadow:0 8px 40px rgba(0,0,0,.75); overflow:hidden;
+    font-family:'Segoe UI',sans-serif;
+  }
+  #edit-panel .ep-hd {
+    padding:11px 14px; background:rgba(240,192,96,0.1);
+    border-bottom:1px solid rgba(240,192,96,0.2);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  #edit-panel .ep-hd-title { color:#f0c060; font-weight:700; font-size:13px; }
+  #edit-panel .ep-hd-name {
+    color:rgba(255,255,255,.5); font-size:10px; max-width:130px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right;
+  }
+  #edit-panel .ep-body { padding:12px 14px; }
+  #edit-panel .ep-row { margin-bottom:11px; }
+  #edit-panel .ep-row label {
+    display:flex; justify-content:space-between; font-size:11px;
+    color:#bbb; margin-bottom:3px;
+  }
+  #edit-panel .ep-row label .ep-val { color:#f0c060; font-weight:600; font-size:12px; }
+  #edit-panel .ep-row input[type=range] {
+    width:100%; accent-color:#f0c060; cursor:pointer; height:4px;
+  }
+  #edit-panel .ep-row input[type=range]:hover { accent-color:#ffdd77; }
+  #edit-panel .ep-actions { display:flex; gap:6px; margin-top:10px; }
+  #edit-panel .ep-btn {
+    flex:1; padding:7px 6px; border:none; border-radius:9px;
+    cursor:pointer; font-size:12px; font-weight:600;
+    font-family:inherit; transition:filter .15s,transform .1s;
+    letter-spacing:.3px;
+  }
+  #edit-panel .ep-btn:active { transform:scale(.96); }
+  #edit-panel .ep-btn:hover { filter:brightness(1.18); }
+  #edit-panel .ep-btn:disabled { opacity:.35; cursor:not-allowed; }
+  #edit-panel .ep-btn.danger  { background:#c0392b; color:#fff; }
+  #edit-panel .ep-btn.neutral { background:rgba(255,255,255,.1); color:#ddd; }
+  #edit-panel .ep-btn.accent  { background:#f0c060; color:#111; }
+  #edit-panel .ep-footer {
+    padding:7px 14px; font-size:10px; color:rgba(255,255,255,.28);
+    text-align:center; border-top:1px solid rgba(255,255,255,.06);
+    background:rgba(0,0,0,.2);
+  }
+  #edit-panel .ep-hint {
+    font-size:10px; color:rgba(255,255,255,.25); text-align:center;
+    margin-top:8px; line-height:1.5;
+  }
 </style>
 </head>
 <body>
@@ -241,6 +301,41 @@
       <button id="ai-send">↑</button>
     </div>
   </div>
+</div>
+
+<!-- Edit Mode Bar -->
+<div id="edit-mode-bar"></div>
+
+<!-- Object Editor Panel -->
+<div id="edit-panel">
+  <div class="ep-hd">
+    <span class="ep-hd-title">✏️ Editor de Objetos</span>
+    <span class="ep-hd-name" id="ep-name">—</span>
+  </div>
+  <div class="ep-body">
+    <div class="ep-row">
+      <label>Ancho (X) <span class="ep-val" id="ep-w-v">—</span></label>
+      <input type="range" id="ep-w" min="0.05" max="20" step="0.05" value="1">
+    </div>
+    <div class="ep-row">
+      <label>Alto (Y) <span class="ep-val" id="ep-h-v">—</span></label>
+      <input type="range" id="ep-h" min="0.05" max="12" step="0.05" value="1">
+    </div>
+    <div class="ep-row">
+      <label>Fondo (Z) <span class="ep-val" id="ep-d-v">—</span></label>
+      <input type="range" id="ep-d" min="0.05" max="20" step="0.05" value="1">
+    </div>
+    <div class="ep-actions">
+      <button class="ep-btn neutral" id="ep-undo">↩ Undo</button>
+      <button class="ep-btn neutral" id="ep-redo">↪ Redo</button>
+    </div>
+    <div class="ep-actions" style="margin-top:6px">
+      <button class="ep-btn danger" id="ep-del">🗑 Eliminar</button>
+      <button class="ep-btn neutral" id="ep-close">✕ Cerrar</button>
+    </div>
+    <div class="ep-hint">Ctrl+Z / Ctrl+Y · Supr = borrar</div>
+  </div>
+  <div class="ep-footer" id="ep-hist">0 / 0 pasos · guardado en navegador</div>
 </div>
 
 <script type="importmap">
@@ -451,6 +546,7 @@ const M = {
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const collidables = [];
+let _editIdCounter = 0;
 
 function box(w,h,d,mat,x,y,z,castShadow=true,receiveShadow=true,collide=false){
   const g = new THREE.BoxGeometry(w,h,d);
@@ -458,6 +554,12 @@ function box(w,h,d,mat,x,y,z,castShadow=true,receiveShadow=true,collide=false){
   m.position.set(x,y,z);
   m.castShadow = castShadow;
   m.receiveShadow = receiveShadow;
+  // Tag for editor
+  m.userData.editId  = ++_editIdCounter;
+  m.userData.origW   = w;
+  m.userData.origH   = h;
+  m.userData.origD   = d;
+  m.userData.label   = `${w.toFixed(2)}×${h.toFixed(2)}×${d.toFixed(2)}m`;
   scene.add(m);
   if(collide) collidables.push(m);
   return m;
@@ -1014,6 +1116,230 @@ btnCotas.addEventListener('click',()=>{
   btnCotas.classList.toggle('active',cotasVisible);
 });
 
+// ─── OBJECT EDITOR ────────────────────────────────────────────────────────────
+(function _editorInit(){
+  const EDIT_KEY  = 'tour360_edits_v1';
+  let   editMode  = false;
+  let   selObj    = null;        // currently selected mesh
+  let   _beforeState = null;     // snapshot before slider drag
+
+  // ── Selection helper (wireframe box) ────────────────────────────────────────
+  const selHelper = new THREE.BoxHelper(new THREE.Mesh(), 0xf0c060);
+  selHelper.visible      = false;
+  selHelper.renderOrder  = 999;
+  scene.add(selHelper);
+
+  // ── History (max 10 steps) ───────────────────────────────────────────────────
+  const history  = [];   // [{obj, before, after}]
+  let   histIdx  = -1;
+
+  function snap(obj){
+    return { sx:obj.scale.x, sy:obj.scale.y, sz:obj.scale.z,
+             px:obj.position.x, py:obj.position.y, pz:obj.position.z,
+             vis:obj.visible };
+  }
+  function applySnap(obj, s){
+    obj.scale.set(s.sx, s.sy, s.sz);
+    obj.position.set(s.px, s.py, s.pz);
+    obj.visible = s.vis;
+    if(selObj===obj){ selHelper.setFromObject(obj); selHelper.update(); }
+  }
+  function pushHistory(obj, before, after){
+    history.splice(histIdx+1);
+    history.push({obj, before, after});
+    if(history.length > 10) history.shift();
+    histIdx = history.length-1;
+    persistEdits();
+    refreshPanel();
+  }
+  function doUndo(){
+    if(histIdx < 0) return;
+    const a = history[histIdx]; histIdx--;
+    applySnap(a.obj, a.before);
+    persistEdits(); refreshPanel();
+  }
+  function doRedo(){
+    if(histIdx >= history.length-1) return;
+    histIdx++;
+    const a = history[histIdx];
+    applySnap(a.obj, a.after);
+    persistEdits(); refreshPanel();
+  }
+
+  // ── Persistence ──────────────────────────────────────────────────────────────
+  function persistEdits(){
+    const data={};
+    scene.children.forEach(o=>{
+      if(o.isMesh && o.userData.editId!=null){
+        data[o.userData.editId]={
+          sx:o.scale.x, sy:o.scale.y, sz:o.scale.z,
+          px:o.position.x, py:o.position.y, pz:o.position.z,
+          vis:o.visible
+        };
+      }
+    });
+    try{ localStorage.setItem(EDIT_KEY, JSON.stringify(data)); }catch(e){}
+  }
+  function loadEdits(){
+    try{
+      const data = JSON.parse(localStorage.getItem(EDIT_KEY)||'{}');
+      scene.children.forEach(o=>{
+        if(!o.isMesh || o.userData.editId==null) return;
+        const d = data[o.userData.editId]; if(!d) return;
+        o.scale.set(d.sx, d.sy, d.sz);
+        o.position.set(d.px, d.py, d.pz);
+        if(d.vis===false) o.visible=false;
+      });
+    }catch(e){}
+  }
+
+  // ── Panel helpers ─────────────────────────────────────────────────────────────
+  const panel   = document.getElementById('edit-panel');
+  const epName  = document.getElementById('ep-name');
+  const epWv    = document.getElementById('ep-w-v');
+  const epHv    = document.getElementById('ep-h-v');
+  const epDv    = document.getElementById('ep-d-v');
+  const epW     = document.getElementById('ep-w');
+  const epH     = document.getElementById('ep-h');
+  const epD     = document.getElementById('ep-d');
+  const epUndo  = document.getElementById('ep-undo');
+  const epRedo  = document.getElementById('ep-redo');
+  const epDel   = document.getElementById('ep-del');
+  const epClose = document.getElementById('ep-close');
+  const epHist  = document.getElementById('ep-hist');
+
+  function refreshPanel(){
+    if(!selObj){ panel.style.display='none'; return; }
+    const {origW=1, origH=1, origD=1, label='Objeto'} = selObj.userData;
+    const cW=(origW*selObj.scale.x), cH=(origH*selObj.scale.y), cD=(origD*selObj.scale.z);
+    epName.textContent = label;
+    epWv.textContent   = cW.toFixed(2)+'m';
+    epHv.textContent   = cH.toFixed(2)+'m';
+    epDv.textContent   = cD.toFixed(2)+'m';
+    epW.value = cW.toFixed(3);
+    epH.value = cH.toFixed(3);
+    epD.value = cD.toFixed(3);
+    epUndo.disabled = histIdx < 0;
+    epRedo.disabled = histIdx >= history.length-1;
+    epHist.textContent = `${histIdx+1} / ${history.length} pasos · guardado en navegador`;
+    selHelper.setFromObject(selObj); selHelper.update();
+  }
+
+  function selectObj(obj){
+    selObj = obj;
+    const {origW=1, origH=1, origD=1} = obj.userData;
+    epW.max = Math.max(20, origW*6).toFixed(1);
+    epH.max = Math.max(12, origH*6).toFixed(1);
+    epD.max = Math.max(20, origD*6).toFixed(1);
+    panel.style.display='block';
+    refreshPanel();
+  }
+  function deselect(){
+    selObj=null; selHelper.visible=false; panel.style.display='none';
+  }
+
+  // ── Slider events ─────────────────────────────────────────────────────────────
+  function wireSlider(el, valEl, axis){
+    el.addEventListener('mousedown', ()=>{ if(selObj) _beforeState=snap(selObj); });
+    el.addEventListener('touchstart',()=>{ if(selObj) _beforeState=snap(selObj); },{passive:true});
+    el.addEventListener('input', ()=>{
+      if(!selObj) return;
+      const v=+el.value, orig=selObj.userData['orig'+(axis==='x'?'W':axis==='y'?'H':'D')];
+      if(axis==='x') selObj.scale.x=v/orig;
+      if(axis==='y') selObj.scale.y=v/orig;
+      if(axis==='z') selObj.scale.z=v/orig;
+      valEl.textContent = v.toFixed(2)+'m';
+      selHelper.setFromObject(selObj); selHelper.update();
+    });
+    el.addEventListener('change', ()=>{
+      if(!selObj || !_beforeState) return;
+      pushHistory(selObj, _beforeState, snap(selObj));
+      _beforeState=null;
+    });
+  }
+  wireSlider(epW, epWv, 'x');
+  wireSlider(epH, epHv, 'y');
+  wireSlider(epD, epDv, 'z');
+
+  epUndo.addEventListener('click', doUndo);
+  epRedo.addEventListener('click', doRedo);
+  epClose.addEventListener('click', deselect);
+  epDel.addEventListener('click', ()=>{
+    if(!selObj) return;
+    const before=snap(selObj);
+    selObj.visible=false;
+    pushHistory(selObj, before, snap(selObj));
+    deselect();
+  });
+
+  // ── Edit mode toggle button ───────────────────────────────────────────────────
+  const editModeBar = document.getElementById('edit-mode-bar');
+  const btnEdit = document.createElement('button');
+  btnEdit.className='hud-btn';
+  btnEdit.innerHTML='✏️ Editar';
+  btnEdit.style.pointerEvents='all';
+  document.getElementById('hud-btns').appendChild(btnEdit);
+
+  function setEditMode(on){
+    editMode=on;
+    btnEdit.classList.toggle('active',on);
+    btnEdit.innerHTML = on ? '✏️ Salir' : '✏️ Editar';
+    editModeBar.style.display = on ? 'block':'none';
+    if(!on) deselect();
+  }
+  btnEdit.addEventListener('click', ()=> setEditMode(!editMode));
+
+  // ── Raycaster (capture phase — fires before existing click handler) ───────────
+  const edRC = new THREE.Raycaster();
+  renderer.domElement.addEventListener('click', e=>{
+    if(!editMode) return;
+    if(typeof _mouseDragged !== 'undefined' && _mouseDragged) return;
+    e.stopImmediatePropagation();
+
+    const rect  = renderer.domElement.getBoundingClientRect();
+    const mouse = new THREE.Vector2(
+      ((e.clientX-rect.left)/rect.width)*2-1,
+      -((e.clientY-rect.top)/rect.height)*2+1
+    );
+    edRC.setFromCamera(mouse, camera);
+
+    // Only direct scene children that are meshes with editId
+    const targets = scene.children.filter(o=>
+      o.isMesh && o.visible && o.userData.editId!=null && o!==selHelper
+    );
+    const hits = edRC.intersectObjects(targets, false);
+    if(hits.length){
+      selectObj(hits[0].object);
+      selHelper.visible=true;
+    } else {
+      deselect();
+    }
+  }, true); // capture phase
+
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────────
+  window.addEventListener('keydown', e=>{
+    const ctrl = e.ctrlKey||e.metaKey;
+    if(ctrl && e.code==='KeyZ' && !e.shiftKey){ doUndo(); e.preventDefault(); return; }
+    if(ctrl && (e.code==='KeyY'||(e.code==='KeyZ'&&e.shiftKey))){ doRedo(); e.preventDefault(); return; }
+    if((e.code==='Delete'||e.code==='Backspace') && selObj && editMode){
+      const before=snap(selObj);
+      selObj.visible=false;
+      pushHistory(selObj, before, snap(selObj));
+      deselect();
+      e.preventDefault();
+    }
+  });
+
+  // ── Apply saved edits on load ─────────────────────────────────────────────────
+  loadEdits();
+
+  // ── Animate loop hook: keep selection box updated ────────────────────────────
+  const _origAnimate = window._animateHook;
+  window._editorTick = ()=>{
+    if(selHelper.visible && selObj) selHelper.update();
+  };
+})();
+
 // ─── CUSTOM MOUSE-LOOK + DRAG CONTROLS ───────────────────────────────────────
 let yaw = Math.PI;   // horizontal rotation (start facing into house)
 let pitch = 0;       // vertical rotation
@@ -1321,6 +1647,7 @@ function animate(){
   }
 
   drawMinimap();
+  window._editorTick?.();
   renderer.render(scene, camera);
 }
 
