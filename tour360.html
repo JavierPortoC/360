@@ -1738,6 +1738,332 @@ setTimeout(()=>{
   // Close all folders by default to save space
   [fLight, fWalls, fFachada, fGlass, fPool, fFurni, fCam].forEach(f=>f.close());
 })();
+
+// ─── OBJECT CREATOR ───────────────────────────────────────────────────────────
+// Registry of AI-spawned objects
+const aiObjects = [];          // [{mesh:Group, name:string, id:number, type:string}]
+let selectedAiObj = null;
+let movingObj     = false;
+let objIdCounter  = 0;
+
+// ── Selection outline ────────────────────────────────────────────────────────
+const selectionBox = new THREE.BoxHelper(new THREE.Object3D(), 0x00ffff);
+selectionBox.visible = false;
+scene.add(selectionBox);
+
+// ── Delete button ─────────────────────────────────────────────────────────────
+const btnDelete = document.createElement('button');
+btnDelete.className = 'hud-btn';
+btnDelete.style.cssText = `
+  position:absolute; bottom:90px; left:50%; transform:translateX(-50%);
+  background:#c03030; color:#fff; border:none; border-radius:10px;
+  padding:8px 22px; font-size:14px; font-weight:700; cursor:pointer;
+  pointer-events:all; display:none; z-index:200;
+  box-shadow:0 2px 12px rgba(0,0,0,0.5); letter-spacing:.5px;`;
+btnDelete.innerHTML = '🗑️ Eliminar objeto';
+document.getElementById('hud').appendChild(btnDelete);
+
+// ── Move mode indicator ───────────────────────────────────────────────────────
+const moveModeEl = document.createElement('div');
+moveModeEl.style.cssText = `
+  position:absolute; bottom:132px; left:50%; transform:translateX(-50%);
+  background:rgba(0,0,0,.75); color:#00ffff; padding:6px 16px;
+  border-radius:8px; font-size:13px; pointer-events:none;
+  display:none; z-index:200; white-space:nowrap;`;
+moveModeEl.innerHTML = '✋ Clic en el suelo para mover &nbsp;·&nbsp; <kbd>R</kbd> rotar &nbsp;·&nbsp; <kbd>ESC</kbd> soltar';
+document.getElementById('hud').appendChild(moveModeEl);
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function _mkBox(w,h,d,mat){ return new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat); }
+function _mkCyl(rt,rb,h,seg,mat){ return new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg), mat); }
+function _mat(c,r=0.6,m=0){ return new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m}); }
+function _shadows(g){ g.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } }); }
+
+// ── Builders ──────────────────────────────────────────────────────────────────
+function buildChair(col='#b07840'){
+  const g=new THREE.Group(), m=_mat(col);
+  const seat=_mkBox(.55,.07,.55,m.clone()); seat.position.y=.46; g.add(seat);
+  const back=_mkBox(.55,.55,.07,m.clone()); back.position.set(0,.745,-.245); g.add(back);
+  [[-.22,-.22],[-.22,.22],[.22,-.22],[.22,.22]].forEach(([x,z])=>{
+    const leg=_mkBox(.07,.46,.07,m.clone()); leg.position.set(x,.23,z); g.add(leg); });
+  _shadows(g); return g;
+}
+function buildTable(col='#9a6030'){
+  const g=new THREE.Group(), m=_mat(col);
+  const top=_mkBox(1.5,.07,.85,m.clone()); top.position.y=.75; g.add(top);
+  [[-.65,-.35],[-.65,.35],[.65,-.35],[.65,.35]].forEach(([x,z])=>{
+    const leg=_mkBox(.09,.75,.09,m.clone()); leg.position.set(x,.375,z); g.add(leg); });
+  _shadows(g); return g;
+}
+function buildSofa(col='#506070'){
+  const g=new THREE.Group(), m=_mat(col);
+  g.add(Object.assign(_mkBox(2,.45,.9,m.clone()),{position:{x:0,y:.225,z:0}}));
+  g.add(Object.assign(_mkBox(2,.55,.2,m.clone()),{position:{x:0,y:.7,z:-.35}}));
+  g.add(Object.assign(_mkBox(.2,.55,.9,m.clone()),{position:{x:-.9,y:.275,z:0}}));
+  g.add(Object.assign(_mkBox(.2,.55,.9,m.clone()),{position:{x:.9,y:.275,z:0}}));
+  [-.48,.48].forEach(x=>{ const c=_mkBox(.88,.2,.7,_mat(col,.8)); c.position.set(x,.55,.05); g.add(c); });
+  _shadows(g); return g;
+}
+function buildBed(col='#e0d8cc'){
+  const g=new THREE.Group(), mf=_mat('#8b6343'), ml=_mat(col,.9);
+  g.add(Object.assign(_mkBox(1.7,.35,2.1,mf.clone()),{position:{x:0,y:.175,z:0}}));
+  g.add(Object.assign(_mkBox(1.6,.25,1.9,ml.clone()),{position:{x:0,y:.475,z:0}}));
+  [-.42,.42].forEach(x=>{ const p=_mkBox(.6,.13,.44,ml.clone()); p.position.set(x,.655,-.72); g.add(p); });
+  g.add(Object.assign(_mkBox(1.7,.85,.1,mf.clone()),{position:{x:0,y:.52,z:-1.0}}));
+  _shadows(g); return g;
+}
+function buildLamp(col='#f0d060'){
+  const g=new THREE.Group(), ms=_mat('#c0a060',.7,.2);
+  g.add(Object.assign(_mkCyl(.2,.25,.09,12,ms.clone()),{position:{x:0,y:.045,z:0}}));
+  g.add(Object.assign(_mkCyl(.03,.03,1.5,8,ms.clone()),{position:{x:0,y:.8,z:0}}));
+  g.add(Object.assign(_mkCyl(.32,.16,.42,16,new THREE.MeshStandardMaterial({color:col,emissive:col,emissiveIntensity:.35,side:THREE.DoubleSide})),{position:{x:0,y:1.73,z:0}}));
+  const bulb=new THREE.PointLight(0xfff0d0,1.5,5); bulb.position.y=1.6; g.add(bulb);
+  _shadows(g); return g;
+}
+function buildColumn(col='#d0c8b8'){
+  const g=new THREE.Group(), m=_mat(col,.8);
+  g.add(Object.assign(_mkCyl(.21,.21,2.8,16,m.clone()),{position:{x:0,y:1.4,z:0}}));
+  g.add(Object.assign(_mkCyl(.29,.29,.16,16,m.clone()),{position:{x:0,y:2.88,z:0}}));
+  g.add(Object.assign(_mkCyl(.29,.29,.16,16,m.clone()),{position:{x:0,y:.08,z:0}}));
+  _shadows(g); return g;
+}
+function buildSphere(col='#3060c0'){
+  const g=new THREE.Group();
+  const s=new THREE.Mesh(new THREE.SphereGeometry(.45,18,12),_mat(col,.3,.1)); s.position.y=.45; g.add(s);
+  _shadows(g); return g;
+}
+function buildPot(col='#c07040'){
+  const g=new THREE.Group();
+  g.add(Object.assign(_mkCyl(.3,.22,.45,16,_mat(col)),{position:{x:0,y:.225,z:0}}));
+  const pl=new THREE.Mesh(new THREE.SphereGeometry(.35,10,8),_mat('#2d8020',.9)); pl.position.set(0,.65,0); pl.scale.set(1,.85,1); g.add(pl);
+  _shadows(g); return g;
+}
+function buildTV(col='#111111'){
+  const g=new THREE.Group();
+  const sc=new THREE.Mesh(new THREE.BoxGeometry(1.65,.94,.04),new THREE.MeshStandardMaterial({color:'#080e18',emissive:'#080e18',emissiveIntensity:.6})); sc.position.y=.87; g.add(sc);
+  g.add(Object.assign(_mkBox(1.72,.98,.05,_mat(col,.8,.3)),{position:{x:0,y:.87,z:0}}));
+  g.add(Object.assign(_mkBox(.08,.48,.08,_mat(col)),{position:{x:0,y:.24,z:0}}));
+  g.add(Object.assign(_mkBox(.5,.04,.22,_mat(col)),{position:{x:0,y:.02,z:0}}));
+  _shadows(g); return g;
+}
+function buildShelf(col='#7b5433'){
+  const g=new THREE.Group(), m=_mat(col);
+  g.add(Object.assign(_mkBox(1.2,2,.35,m.clone()),{position:{x:0,y:1,z:0}}));
+  const bookC=['#c03030','#3060c0','#409040','#f0b020','#8030b0','#e07030'];
+  for(let i=0;i<4;i++){
+    g.add(Object.assign(_mkBox(1.15,.04,.32,m.clone()),{position:{x:0,y:.45+i*.46,z:0}}));
+    let bx=-.52;
+    for(let j=0;j<6;j++){
+      const bk=_mkBox(.09+Math.random()*.05,.28+Math.random()*.1,.24,_mat(bookC[j%6],.9));
+      bk.position.set(bx,.63+i*.46,0); bx+=.15+Math.random()*.03; g.add(bk);
+    }
+  }
+  _shadows(g); return g;
+}
+function buildBox(col='#a09080'){
+  const g=new THREE.Group();
+  g.add(Object.assign(_mkBox(.6,.6,.6,_mat(col)),{position:{x:0,y:.3,z:0}}));
+  _shadows(g); return g;
+}
+function buildRug(col='#8050c0'){
+  const g=new THREE.Group();
+  const rug=_mkBox(2,.02,1.4,new THREE.MeshStandardMaterial({color:col,roughness:1})); rug.position.y=.01; g.add(rug);
+  return g;
+}
+
+// ── Catalog ───────────────────────────────────────────────────────────────────
+const BUILDERS = {
+  'silla':      buildChair,  'chair':     buildChair,
+  'mesa':       buildTable,  'table':     buildTable,
+  'sofá':       buildSofa,   'sofa':      buildSofa,   'sillon':  buildSofa,
+  'cama':       buildBed,    'bed':       buildBed,
+  'lámpara':    buildLamp,   'lampara':   buildLamp,   'lamp':    buildLamp,
+  'columna':    buildColumn, 'column':    buildColumn, 'pilar':   buildColumn,
+  'esfera':     buildSphere, 'sphere':    buildSphere, 'pelota':  buildSphere, 'bola': buildSphere,
+  'maceta':     buildPot,    'planta':    buildPot,    'pot':     buildPot,
+  'tv':         buildTV,     'televisión':buildTV,     'television':buildTV,
+  'estantería': buildShelf,  'librería':  buildShelf,  'armario': buildShelf,
+  'caja':       buildBox,    'box':       buildBox,    'cubo':    buildBox,
+  'alfombra':   buildRug,    'rug':       buildRug,
+};
+
+// ── Select / deselect ─────────────────────────────────────────────────────────
+function selectAiObj(obj){
+  selectedAiObj = obj;
+  if(obj){
+    selectionBox.setFromObject(obj.mesh);
+    selectionBox.visible = true;
+    btnDelete.style.display = 'block';
+  } else {
+    selectionBox.visible = false;
+    btnDelete.style.display = 'none';
+    movingObj = false;
+    moveModeEl.style.display = 'none';
+  }
+}
+
+btnDelete.addEventListener('click', ()=>{
+  if(!selectedAiObj) return;
+  scene.remove(selectedAiObj.mesh);
+  aiObjects.splice(aiObjects.indexOf(selectedAiObj), 1);
+  aiReply(`🗑️ <strong>${selectedAiObj.name}</strong> eliminado.`);
+  selectAiObj(null);
+});
+
+// ── Floor Y helper ────────────────────────────────────────────────────────────
+function getFloorYAt(worldX, worldZ, eyeY){
+  let fy=-100;
+  for(const r of floorColliders){
+    if(worldX>=r.minX && worldX<=r.maxX && worldZ>=r.minZ && worldZ<=r.maxZ){
+      if(r.y > fy && eyeY >= r.y+0.4) fy=r.y;
+    }
+  }
+  return fy===-100 ? 0 : fy;
+}
+
+// ── Spawn object in front of camera ──────────────────────────────────────────
+function spawnAiObject(typeName, color){
+  const fn = BUILDERS[typeName]; if(!fn) return null;
+  const mesh = fn(color || undefined);
+
+  const fwd = new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)).normalize();
+  const base = camera.position.clone().addScaledVector(fwd, 2.5);
+  const fy   = getFloorYAt(base.x, base.z, camera.position.y);
+  mesh.position.set(base.x, fy, base.z);
+  scene.add(mesh);
+
+  const id   = ++objIdCounter;
+  const name = typeName[0].toUpperCase()+typeName.slice(1)+' #'+id;
+  const obj  = {mesh, name, type:typeName, id};
+  aiObjects.push(obj);
+
+  // Auto-enter move mode so user can place it immediately
+  setTimeout(()=>{ selectAiObj(obj); movingObj=true; moveModeEl.style.display='block'; },40);
+  return obj;
+}
+
+// ── Click to select / move ───────────────────────────────────────────────────
+const _rc    = new THREE.Raycaster();
+let   _mouseDragged = false;
+renderer.domElement.addEventListener('mousedown', ()=>{ _mouseDragged=false; });
+renderer.domElement.addEventListener('mousemove', ()=>{ _mouseDragged=true;  });
+
+renderer.domElement.addEventListener('click', e=>{
+  if(_mouseDragged) return;   // ignore drag-end clicks
+  const rect = renderer.domElement.getBoundingClientRect();
+  const mouse= new THREE.Vector2(
+    ((e.clientX-rect.left)/rect.width)*2-1,
+    -((e.clientY-rect.top)/rect.height)*2+1);
+  _rc.setFromCamera(mouse, camera);
+
+  if(movingObj && selectedAiObj){
+    // Place selected object where user clicked (project onto floor plane)
+    const fy    = getFloorYAt(camera.position.x, camera.position.z, camera.position.y);
+    const plane = new THREE.Plane(new THREE.Vector3(0,1,0), -fy);
+    const hit   = new THREE.Vector3();
+    _rc.ray.intersectPlane(plane, hit);
+    if(hit){
+      selectedAiObj.mesh.position.set(hit.x, fy, hit.z);
+      selectionBox.setFromObject(selectedAiObj.mesh);
+      movingObj=false; moveModeEl.style.display='none';
+      aiReply(`📍 <strong>${selectedAiObj.name}</strong> colocado.`);
+    }
+    return;
+  }
+
+  // Raycast against all AI object meshes
+  const meshList = aiObjects.map(o=>o.mesh);
+  const hits = _rc.intersectObjects(meshList, true);
+  if(hits.length){
+    let root=hits[0].object;
+    while(root.parent && root.parent!==scene) root=root.parent;
+    const found=aiObjects.find(o=>o.mesh===root);
+    if(found){ selectAiObj(found); movingObj=true; moveModeEl.style.display='block'; return; }
+  }
+  // Click on empty → deselect
+  if(selectedAiObj) selectAiObj(null);
+});
+
+// ── Keyboard shortcuts for selected object ────────────────────────────────────
+window.addEventListener('keydown', e=>{
+  if(isTyping()) return;
+  if(e.code==='Escape' && selectedAiObj){ selectAiObj(null); return; }
+  if(!selectedAiObj) return;
+  if(e.code==='KeyR'){  // rotate 45°
+    selectedAiObj.mesh.rotation.y += Math.PI/4;
+    selectionBox.setFromObject(selectedAiObj.mesh);
+  }
+  // Nudge with arrow keys while holding Alt
+  if(e.altKey){
+    const step=0.25;
+    if(e.code==='ArrowLeft')  selectedAiObj.mesh.position.x -= step;
+    if(e.code==='ArrowRight') selectedAiObj.mesh.position.x += step;
+    if(e.code==='ArrowUp')    selectedAiObj.mesh.position.z -= step;
+    if(e.code==='ArrowDown')  selectedAiObj.mesh.position.z += step;
+    selectionBox.setFromObject(selectedAiObj.mesh);
+    e.preventDefault();
+  }
+  if(e.code==='Delete' || e.code==='Backspace'){
+    if(selectedAiObj){ btnDelete.click(); }
+  }
+});
+
+// ── Keep selectionBox in sync each frame (patch render) ───────────────────────
+{
+  const _renderOrig = renderer.render.bind(renderer);
+  renderer.render = function(sc, cam){
+    _renderOrig(sc, cam);
+    if(selectedAiObj && selectionBox.visible) selectionBox.setFromObject(selectedAiObj.mesh);
+  };
+}
+
+// ── AI command extensions: CREATE + DELETE ────────────────────────────────────
+// Patch the existing processAICommand (duplicate function decl is invalid in modules)
+const _processCmdOrig = processAICommand;
+processAICommand = function(text){
+  const t = text.toLowerCase().trim();
+
+  // CREATE: "crea una silla roja", "pon una mesa", "añade una lámpara azul"
+  if(/crea|añade|pon|coloca|agrega|quiero|dame|haz|necesito/.test(t)){
+    let foundType=null, foundColor=null;
+    for(const key of Object.keys(BUILDERS)){
+      if(t.includes(key)){ foundType=key; break; }
+    }
+    if(foundType){
+      foundColor = parseColor(t);
+      const obj = spawnAiObject(foundType, foundColor);
+      return `✅ <strong>${obj.name}</strong> creado${foundColor?` en <span style="color:${foundColor}">■</span> ${foundColor}`:''}.<br>
+        🖱️ <em>Clic en el suelo para posicionarlo.</em><br>
+        ⌨️ <kbd>R</kbd> rotar · <kbd>Alt+↑↓←→</kbd> mover fino · <kbd>Del</kbd> borrar`;
+    }
+  }
+
+  // DELETE selected
+  if(/elimina|borra|quita|suprime|remove|delete/.test(t)){
+    if(selectedAiObj){ btnDelete.click(); return null; }
+    return `No hay ningún objeto seleccionado. Haz clic en uno primero.`;
+  }
+
+  // DESELECT
+  if(/deselecciona|suel(ta|to)|cancela.*selecc/.test(t)){
+    if(selectedAiObj){ selectAiObj(null); return `✅ Selección cancelada.`; }
+  }
+
+  // LIST objects
+  if(/lista|qué.*creast|objetos.*creat|inventario/.test(t)){
+    if(!aiObjects.length) return `No hay objetos creados todavía.`;
+    return `📦 Objetos en escena:<br>`+aiObjects.map(o=>`&bull; <strong>${o.name}</strong>`).join('<br>');
+  }
+
+  // Delegate to original handler
+  return _processCmdOrig(text);
+};
+
+// Update welcome message to mention object creation
+setTimeout(()=>{
+  aiReply(`💡 <strong>Nuevo:</strong> puedo crear muebles en la escena.<br>
+    Prueba: <em>"crea una silla roja"</em>, <em>"pon una mesa"</em>, <em>"añade una lámpara azul"</em>.`);
+}, 1800);
 </script>
 </body>
 </html>
