@@ -1166,12 +1166,26 @@ function toggleFly(on){
   flyMode = on !== undefined ? on : !flyMode;
   btnFly.classList.toggle('active', flyMode);
   btnFly.textContent = flyMode ? '🚁 Volando' : '🚁 Volar';
-  if(!flyMode){ onGround=false; verticalVel=0; }
-  aiReply(flyMode ? '🚁 Modo vuelo activado. <strong>Alt</strong> = subir, <strong>Ctrl</strong> = bajar.' : '🦶 Modo caminata activado.');
+  if(!flyMode){ verticalVel = 0; onGround = false; }
+  // Notify via AI panel if it's already initialized
+  const msgs = document.getElementById('ai-messages');
+  if(msgs){
+    const d = document.createElement('div'); d.className='ai-msg bot';
+    d.innerHTML = flyMode
+      ? '🚁 Modo vuelo activado. <strong>Alt</strong> = subir, <strong>Ctrl</strong> = bajar.'
+      : '🦶 Modo caminata activado.';
+    msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight;
+  }
 }
 btnFly.addEventListener('click', ()=> toggleFly());
 
+function isTyping(){
+  const t = document.activeElement?.tagName;
+  return t === 'INPUT' || t === 'TEXTAREA';
+}
+
 window.addEventListener('keydown', e=>{
+  if(isTyping()) return; // don't capture keys while typing in chat
   // Prevent browser defaults for used keys
   if(['Space','AltLeft','AltRight','ControlLeft','ControlRight'].includes(e.code)) e.preventDefault();
   keys[e.code]=true;
@@ -1181,6 +1195,10 @@ window.addEventListener('keydown', e=>{
   if(e.code==='KeyF' && isActive){ toggleFly(); }
 });
 window.addEventListener('keyup', e=>{ keys[e.code]=false; });
+
+// Stop all movement when AI input gains focus
+document.addEventListener('focusin',  e=>{ if(e.target?.tagName==='INPUT'||e.target?.tagName==='TEXTAREA') Object.keys(keys).forEach(k=>keys[k]=false); });
+document.addEventListener('focusout', e=>{ if(e.target?.tagName==='INPUT'||e.target?.tagName==='TEXTAREA') Object.keys(keys).forEach(k=>keys[k]=false); });
 
 const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
@@ -1328,7 +1346,7 @@ function animate(){
           if(r.y > targetFloorY && cp.y >= r.y+0.5) targetFloorY=r.y;
         }
       }
-      if(targetFloorY === -100) targetFloorY = -5;
+      if(targetFloorY === -100) targetFloorY = 0; // exterior ground is at y=0
       const eyeHeight = 1.7;
       const targetY = targetFloorY + eyeHeight;
 
